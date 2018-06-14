@@ -1,6 +1,6 @@
 package testing
 
-import "github.com/thockin/logr"
+import "github.com/go-logr/logr"
 
 // NullLogger is a logr.Logger that does nothing.
 type NullLogger struct{}

@@ -3,7 +3,7 @@ package testing
 import (
 	"testing"
 
-	"github.com/thockin/logr"
+	"github.com/go-logr/logr"
 )
 
 // TestLogger is a logr.Logger that prints through a testing.T object.
