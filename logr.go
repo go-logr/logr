@@ -36,7 +36,7 @@
 // (like only logging such events for objects in a certain namespace), or copy the structured
 // information into a structured log store.
 //
-// For logging errors, Logger has a convinience method called Error.  Suppose we wanted to log an
+// For logging errors, Logger has a method called Error.  Suppose we wanted to log an
 // error while reconciling.  With the traditional log package, we might write
 //   log.Errorf("unable to reconcile object %s/%s: %v", object.Namespace, object.Name, err)
 //
@@ -44,11 +44,12 @@
 //   // assuming the above setup for log
 //   log.Error(err, "unable to reconcile object", "object", object)
 //
-// This is mostly identical to
+// This functions similarly to:
 //   log.Info("unable to reconcile object", "error", err, "object", object)
 //
-// However, it's more convinient, and certain logging libraries may choose to attach additional
-// information (such as stack traces) on calls to Error, so it's preferred to use Error to log errors.
+// However, it ensures that a standard tag ("error") is used across all error logging.  Furthermore,
+// certain implementations may choose to attach additional information (such as stack traces) on
+// calls to Error, so it's preferred to use Error to log errors.
 //
 // Parts of a log line
 //
@@ -56,20 +57,20 @@
 // logger name, log verbosity, log message, and key-value pairs.
 //
 // The Logger name is constists of a series of name "segments" added by successive calls to WithName.
-// These name segments may contain anything but periods.  Exactly how these are represented in the
-// output is implementation-dependent.  A common format for implementations is to prefix log messages
-// with the name segments, separated by periods.
+// These name segments will be joined in some way by the underlying implementation.  It is strongly
+// reccomended that name segements contain simple identifiers (letters, digits, and hyphen), and do
+// not contain characters that could muddle the log output or confuse the joining operation (e.g.
+// whitespace, commas, periods, slashes, brackets, quotes, etc).
 //
 // Log verbosity represents how little a log matters.  Level zero, the default, matters most.
 // Increasing levels matter less and less.  Try to avoid lots of different verbosity levels,
-// and instead provide useful keys, logger names, and log messages instead for users to filter on
-// instead.
+// and instead provide useful keys, logger names, and log messages for users to filter on.
 //
 // The log message consists of a constant message attached to the the log line.  This
 // should generally be a simple description of what's occuring, and should never be a format string.
 //
 // Variable information can then be attached using key/value pairs.  Keys are arbitrary strings,
-// and values may be any Go object.
+// and values may be any Go value.
 package logr
 
 // TODO: consider adding back in format strings if they're really needed
@@ -100,9 +101,8 @@ type Logger interface {
 	InfoLogger
 
 	// Error logs an error, with the given message and key/value pairs as context.
-	// It functions as a convinience wrapper around Info, and generally behaves
-	// equivalently to calling Info with the error attached as the "error" key,
-	// but this method should be preferred for logging errors  (see the package
+	// It functions similarly to calling Info with the "error" tag, but may have
+	// unique behavior, and should be preferred for logging errors  (see the package
 	// documentations for more information).
 	//
 	// The msg field should be used to add context to any underlying error,
@@ -118,9 +118,10 @@ type Logger interface {
 	// See Info for documentation on how key/value pairs work.
 	WithTags(keysAndValues ...interface{}) Logger
 
-	// WithName adds a new suffix to the logger's name.
+	// WithName adds a new element to the logger's name.
 	// Successive calls with WithName continue to append
-	// suffixes to the logger's name.  Name segments should
-	// not contain periods, but are otherwise freeform.
+	// suffixes to the logger's name.  It's strongly reccomended
+	// that name segments contain only letters, digits, and hyphens
+	// (see the package documentation for more information).
 	WithName(name string) Logger
 }
