@@ -7,20 +7,87 @@
 //
 // This is a BETA grade API.  Until there is a significant 2nd implementation,
 // I don't really know how it will change.
+//
+// The logging specifically makes it non-trivial to use format strings, to encourage
+// attaching structured information instead of unstructured format strings.
+//
+// Usage
+//
+// Logging is done using a Logger.  Loggers can have name prefixes and tags attached,
+// so that all log messages logged with that Logger have some base context associated.
+//
+// For instance, suppose we're trying to reconcile the state of an object, and we want
+// to log that we've made some decision.
+//
+// With the traditional log package, we might write
+//  log.Printf(
+//      "decided to set field foo to value %q for object %s/%s",
+//       targetValue, object.Namespace, object.Name)
+//
+// With logr's structured logging, we'd write
+//  // elsewhere in the file, set up the logger to log with the prefix of "reconcilers",
+//  // and the tag target-type=Foo, for extra context.
+//  log := mainLogger.WithName("reconcilers").WithTag("target-type", "Foo")
+//
+//  // later on...
+//  log.Info("setting field foo on object", "value", targetValue, "object", object)
+//
+// Depending on our logging implementation, we could then make logging decisions based on field values
+// (like only logging such events for objects in a certain namespace), or copy the structured
+// information into a structured log store.
+//
+// For logging errors, Logger has a method called Error.  Suppose we wanted to log an
+// error while reconciling.  With the traditional log package, we might write
+//   log.Errorf("unable to reconcile object %s/%s: %v", object.Namespace, object.Name, err)
+//
+// With logr, we'd instead write
+//   // assuming the above setup for log
+//   log.Error(err, "unable to reconcile object", "object", object)
+//
+// This functions similarly to:
+//   log.Info("unable to reconcile object", "error", err, "object", object)
+//
+// However, it ensures that a standard tag ("error") is used across all error logging.  Furthermore,
+// certain implementations may choose to attach additional information (such as stack traces) on
+// calls to Error, so it's preferred to use Error to log errors.
+//
+// Parts of a log line
+//
+// Each log message from a Logger has four types of context:
+// logger name, log verbosity, log message, and key-value pairs.
+//
+// The Logger name is constists of a series of name "segments" added by successive calls to WithName.
+// These name segments will be joined in some way by the underlying implementation.  It is strongly
+// reccomended that name segements contain simple identifiers (letters, digits, and hyphen), and do
+// not contain characters that could muddle the log output or confuse the joining operation (e.g.
+// whitespace, commas, periods, slashes, brackets, quotes, etc).
+//
+// Log verbosity represents how little a log matters.  Level zero, the default, matters most.
+// Increasing levels matter less and less.  Try to avoid lots of different verbosity levels,
+// and instead provide useful keys, logger names, and log messages for users to filter on.
+//
+// The log message consists of a constant message attached to the the log line.  This
+// should generally be a simple description of what's occuring, and should never be a format string.
+//
+// Variable information can then be attached using key/value pairs.  Keys are arbitrary strings,
+// and values may be any Go value.
 package logr
 
-// TODO: consider structured logging, a la uber-go/zap
+// TODO: consider adding back in format strings if they're really needed
+// TODO: consider other bits of zap/zapcore functionality like ObjectMarshaller (for arbitrary objects)
 // TODO: consider other bits of glog functionality like Flush, InfoDepth, OutputStats
 
-// InfoLogger represents the ability to log non-error messages.
+// InfoLogger represents the ability to log non-error messages, at a particular verbosity.
 type InfoLogger interface {
-	// Info logs a non-error message.  This is behaviorally akin to fmt.Print.
-	Info(args ...interface{})
+	// Info logs a non-error message with the given key/value pairs as context.
+	//
+	// The msg argument should be used to add some constant description to
+	// the log line.  The key/value pairs can then be used to add additional
+	// variable information.  The key/value pairs should alternate string
+	// keys and arbitrary values.
+	Info(msg string, keysAndValues ...interface{})
 
-	// Infof logs a formatted non-error message.
-	Infof(format string, args ...interface{})
-
-	// Enabled test whether this InfoLogger is enabled.  For example,
+	// Enabled tests whether this InfoLogger is enabled.  For example,
 	// commandline flags might be used to set the logging verbosity and disable
 	// some info logs.
 	Enabled() bool
@@ -33,16 +100,28 @@ type Logger interface {
 	// example, logger.Info() produces the same result as logger.V(0).Info.
 	InfoLogger
 
-	// Error logs a error message.  This is behaviorally akin to fmt.Print.
-	Error(args ...interface{})
-
-	// Errorf logs a formatted error message.
-	Errorf(format string, args ...interface{})
+	// Error logs an error, with the given message and key/value pairs as context.
+	// It functions similarly to calling Info with the "error" tag, but may have
+	// unique behavior, and should be preferred for logging errors  (see the package
+	// documentations for more information).
+	//
+	// The msg field should be used to add context to any underlying error,
+	// while the err field should be used to attach the actual error that
+	// triggered this log line, if present.
+	Error(err error, msg string, keysAndValues ...interface{})
 
 	// V returns an InfoLogger value for a specific verbosity level.  A higher
 	// verbosity level means a log message is less important.
 	V(level int) InfoLogger
 
-	// NewWithPrefix returns a Logger which prefixes all messages.
-	NewWithPrefix(prefix string) Logger
+	// WithTags adds some key-value pairs of context to a logger.
+	// See Info for documentation on how key/value pairs work.
+	WithTags(keysAndValues ...interface{}) Logger
+
+	// WithName adds a new element to the logger's name.
+	// Successive calls with WithName continue to append
+	// suffixes to the logger's name.  It's strongly reccomended
+	// that name segments contain only letters, digits, and hyphens
+	// (see the package documentation for more information).
+	WithName(name string) Logger
 }
