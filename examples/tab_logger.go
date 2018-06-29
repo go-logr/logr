@@ -12,7 +12,7 @@ import (
 // It's terribly inefficient, and is *only* a basic example.
 type TabLogger struct{
 	name string
-	tags map[string]interface{}
+	keyValues map[string]interface{}
 
 	writer *tabwriter.Writer
 }
@@ -21,7 +21,7 @@ var _ logr.Logger = &TabLogger{}
 
 func (l *TabLogger) Info(msg string, kvs ...interface{}) {
 	fmt.Fprintf(l.writer, "%s\t%s\t", l.name, msg)
-	for k, v := range l.tags {
+	for k, v := range l.keyValues {
 		fmt.Fprintf(l.writer, "%s: %+v  ", k, v)
 	}
 	for i := 0; i < len(kvs); i += 2 {
@@ -47,14 +47,14 @@ func (l *TabLogger) V(_ int) logr.InfoLogger {
 func (l *TabLogger) WithName(name string) logr.Logger {
 	return &TabLogger{
 		name: l.name+"."+name,
-		tags: l.tags,
+		keyValues: l.keyValues,
 		writer: l.writer,
 	}
 }
 
-func (l *TabLogger) WithTags(kvs ...interface{}) logr.Logger {
-	newMap := make(map[string]interface{}, len(l.tags)+len(kvs)/2)
-	for k, v := range l.tags {
+func (l *TabLogger) WithValues(kvs ...interface{}) logr.Logger {
+	newMap := make(map[string]interface{}, len(l.keyValues)+len(kvs)/2)
+	for k, v := range l.keyValues {
 		newMap[k] = v
 	}
 	for i := 0; i < len(kvs); i += 2 {
@@ -62,7 +62,7 @@ func (l *TabLogger) WithTags(kvs ...interface{}) logr.Logger {
 	}
 	return &TabLogger{
 		name: l.name,
-		tags: newMap,
+		keyValues: newMap,
 		writer: l.writer,
 	}
 }

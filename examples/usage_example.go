@@ -92,8 +92,8 @@ func (c *Controller) Run() {
 	c.log.Info("starting reconciliation")
 
 	for key := c.client.WatchNext(); key != ""; key = c.client.WatchNext() {
-		// we can make more specific loggers if we always want to attach a particular tag
-		log := c.log.WithTags("key", key)
+		// we can make more specific loggers if we always want to attach a particular named value
+		log := c.log.WithValues("key", key)
 
 		// fetch our object
 		obj, err := c.client.Get(key)
@@ -109,7 +109,7 @@ func (c *Controller) Run() {
 		}
 
 		// always log the object with log messages
-		log = log.WithTags("object", obj)
+		log = log.WithValues("object", obj)
 		log.V(1).Info("reconciling object for key")
 
 		// Do some complicated updates updates
