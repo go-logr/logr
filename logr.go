@@ -70,6 +70,7 @@
 // Log verbosity represents how little a log matters.  Level zero, the default, matters most.
 // Increasing levels matter less and less.  Try to avoid lots of different verbosity levels,
 // and instead provide useful keys, logger names, and log messages for users to filter on.
+// It's illegal to pass a log level below zero.
 //
 // The log message consists of a constant message attached to the the log line.  This
 // should generally be a simple description of what's occuring, and should never be a format string.
@@ -133,7 +134,8 @@ type Logger interface {
 	Error(err error, msg string, keysAndValues ...interface{})
 
 	// V returns an InfoLogger value for a specific verbosity level.  A higher
-	// verbosity level means a log message is less important.
+	// verbosity level means a log message is less important.  It's illegal to
+	// pass a log level less than zero.
 	V(level int) InfoLogger
 
 	// WithValues adds some key-value pairs of context to a logger.
