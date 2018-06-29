@@ -13,8 +13,12 @@
 //
 // Usage
 //
-// Logging is done using a Logger.  Loggers can have name prefixes and tags attached,
-// so that all log messages logged with that Logger have some base context associated.
+// Logging is done using a Logger.  Loggers can have name prefixes and named values
+// attached, so that all log messages logged with that Logger have some base context
+// associated.
+//
+// The term "key" is used to refer to the name associated with a particular value, to
+// disambiguate it from the general Logger name.
 //
 // For instance, suppose we're trying to reconcile the state of an object, and we want
 // to log that we've made some decision.
@@ -26,7 +30,7 @@
 //
 // With logr's structured logging, we'd write
 //  // elsewhere in the file, set up the logger to log with the prefix of "reconcilers",
-//  // and the tag target-type=Foo, for extra context.
+//  // and the named value target-type=Foo, for extra context.
 //  log := mainLogger.WithName("reconcilers").WithTag("target-type", "Foo")
 //
 //  // later on...
@@ -47,16 +51,17 @@
 // This functions similarly to:
 //   log.Info("unable to reconcile object", "error", err, "object", object)
 //
-// However, it ensures that a standard tag ("error") is used across all error logging.  Furthermore,
-// certain implementations may choose to attach additional information (such as stack traces) on
-// calls to Error, so it's preferred to use Error to log errors.
+// However, it ensures that a standard key for the error value ("error") is used across all
+// error logging.  Furthermore, certain implementations may choose to attach additional
+// information (such as stack traces) on calls to Error, so it's preferred to use Error
+// to log errors.
 //
 // Parts of a log line
 //
 // Each log message from a Logger has four types of context:
-// logger name, log verbosity, log message, and key-value pairs.
+// logger name, log verbosity, log message, and the named values.
 //
-// The Logger name is constists of a series of name "segments" added by successive calls to WithName.
+// The Logger name constists of a series of name "segments" added by successive calls to WithName.
 // These name segments will be joined in some way by the underlying implementation.  It is strongly
 // reccomended that name segements contain simple identifiers (letters, digits, and hyphen), and do
 // not contain characters that could muddle the log output or confuse the joining operation (e.g.
@@ -69,8 +74,8 @@
 // The log message consists of a constant message attached to the the log line.  This
 // should generally be a simple description of what's occuring, and should never be a format string.
 //
-// Variable information can then be attached using key/value pairs.  Keys are arbitrary strings,
-// and values may be any Go value.
+// Variable information can then be attached using named values (key/value pairs).  Keys are arbitrary
+// strings, while values may be any Go value.
 package logr
 
 // TODO: consider adding back in format strings if they're really needed
@@ -101,10 +106,9 @@ type Logger interface {
 	InfoLogger
 
 	// Error logs an error, with the given message and key/value pairs as context.
-	// It functions similarly to calling Info with the "error" tag, but may have
-	// unique behavior, and should be preferred for logging errors  (see the package
+	// It functions similarly to calling Info with the "error" named value, but may
 	// documentations for more information).
-	//
+	// package documentations for more information).
 	// The msg field should be used to add context to any underlying error,
 	// while the err field should be used to attach the actual error that
 	// triggered this log line, if present.
@@ -114,9 +118,9 @@ type Logger interface {
 	// verbosity level means a log message is less important.
 	V(level int) InfoLogger
 
-	// WithTags adds some key-value pairs of context to a logger.
+	// WithValues adds some key-value pairs of context to a logger.
 	// See Info for documentation on how key/value pairs work.
-	WithTags(keysAndValues ...interface{}) Logger
+	WithValues(keysAndValues ...interface{}) Logger
 
 	// WithName adds a new element to the logger's name.
 	// Successive calls with WithName continue to append

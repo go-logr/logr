@@ -34,6 +34,6 @@ func (log TestLogger) WithName(_ string) logr.Logger {
 	return log
 }
 
-func (log TestLogger) WithTags(_ ...interface{}) logr.Logger {
+func (log TestLogger) WithValues(_ ...interface{}) logr.Logger {
 	return log
 }
