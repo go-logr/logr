@@ -31,7 +31,7 @@
 // With logr's structured logging, we'd write
 //  // elsewhere in the file, set up the logger to log with the prefix of "reconcilers",
 //  // and the named value target-type=Foo, for extra context.
-//  log := mainLogger.WithName("reconcilers").WithTag("target-type", "Foo")
+//  log := mainLogger.WithName("reconcilers").WithValues("target-type", "Foo")
 //
 //  // later on...
 //  log.Info("setting field foo on object", "value", targetValue, "object", object)
@@ -76,6 +76,23 @@
 //
 // Variable information can then be attached using named values (key/value pairs).  Keys are arbitrary
 // strings, while values may be any Go value.
+//
+// Key Naming Conventions
+//
+// While users are generally free to use key names of their choice, it's generally best to avoid
+// using the following keys, as they're frequently used by implementations:
+//
+// - `"error"`: the underlying error value in the `Error` method.
+// - `"stacktrace"`: the stack trace associated with a particular log line or error
+//                   (often from the `Error` message).
+// - `"caller"`: the calling information (file/line) of a particular log line.
+// - `"msg"`: the log message.
+// - `"level"`: the log level.
+// - `"ts"`: the timestamp for a log line.
+//
+// Implementations are encouraged to make use of these keys to represent the above
+// concepts, when neccessary (for example, in a pure-JSON output form, it would be
+// necessary to represent at least message and timestamp as ordinary named values).
 package logr
 
 // TODO: consider adding back in format strings if they're really needed
@@ -107,8 +124,9 @@ type Logger interface {
 
 	// Error logs an error, with the given message and key/value pairs as context.
 	// It functions similarly to calling Info with the "error" named value, but may
-	// documentations for more information).
+	// have unique behavior, and should be preferred for logging errors (see the
 	// package documentations for more information).
+	//
 	// The msg field should be used to add context to any underlying error,
 	// while the err field should be used to attach the actual error that
 	// triggered this log line, if present.
