@@ -84,22 +84,35 @@
 //
 // Key Naming Conventions
 //
+// Keys are not strictly required to conform to any specification or regex, but
+// it is recommended that they:
+//   * be human-readable and meaningful (not auto-generated or simple ordinals)
+//   * be constant (not dependent on input data)
+//   * contain only printable characters
+//   * not contain whitespace or punctuation
+//
+// These guidelines help ensure that log data is processed properly regardless
+// of the log implementation.  For example, log implementations will try to
+// output JSON data or will store data for later database (e.g. SQL) queries.
+//
 // While users are generally free to use key names of their choice, it's
 // generally best to avoid using the following keys, as they're frequently used
 // by implementations:
 //
+// - `"caller"`: the calling information (file/line) of a particular log line.
 // - `"error"`: the underlying error value in the `Error` method.
+// - `"level"`: the log level.
+// - `"logger"`: the name of the associated logger.
+// - `"msg"`: the log message.
 // - `"stacktrace"`: the stack trace associated with a particular log line or
 //                   error (often from the `Error` message).
-// - `"caller"`: the calling information (file/line) of a particular log line.
-// - `"msg"`: the log message.
-// - `"level"`: the log level.
 // - `"ts"`: the timestamp for a log line.
 //
 // Implementations are encouraged to make use of these keys to represent the
 // above concepts, when neccessary (for example, in a pure-JSON output form, it
 // would be necessary to represent at least message and timestamp as ordinary
 // named values).
+//
 package logr
 
 // TODO: consider adding back in format strings if they're really needed
