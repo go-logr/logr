@@ -31,9 +31,15 @@ may feel very similar, but the primary difference is the lack of semantics.
 Because verbosity is a numerical value, it's safe to assume that an app running
 with higher verbosity means more (and less important) logs will be generated.
 
-This is a BETA grade API.  I have implemented it for
-[glog](https://godoc.org/github.com/golang/glog). Until there is a significant
-2nd implementation, I don't really know how it will change.
+This is a BETA grade API.
+
+There are implementations for the following logging libraries:
+
+- **github.com/google/glog**: [glogr](https://github.com/go-logr/glogr)
+- **k8s.io/klog**: [klogr](https://git.k8s.io/klog/klogr)
+- **go.uber.org/zap**: [zapr](https://github.com/go-logr/zapr)
+- **log** (the Go standard library logger):
+  [stdr](https://github.com/go-logr/stdr)
 
 # FAQ
 
