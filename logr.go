@@ -13,22 +13,22 @@
 //
 // Usage
 //
-// Logging is done using a Logger.  Loggers can have name prefixes and named values
-// attached, so that all log messages logged with that Logger have some base context
-// associated.
+// Logging is done using a Logger.  Loggers can have name prefixes and named
+// values attached, so that all log messages logged with that Logger have some
+// base context associated.
 //
-// The term "key" is used to refer to the name associated with a particular value, to
-// disambiguate it from the general Logger name.
+// The term "key" is used to refer to the name associated with a particular
+// value, to disambiguate it from the general Logger name.
 //
-// For instance, suppose we're trying to reconcile the state of an object, and we want
-// to log that we've made some decision.
+// For instance, suppose we're trying to reconcile the state of an object, and
+// we want to log that we've made some decision.
 //
-// With the traditional log package, we might write
+// With the traditional log package, we might write:
 //  log.Printf(
 //      "decided to set field foo to value %q for object %s/%s",
 //       targetValue, object.Namespace, object.Name)
 //
-// With logr's structured logging, we'd write
+// With logr's structured logging, we'd write:
 //  // elsewhere in the file, set up the logger to log with the prefix of "reconcilers",
 //  // and the named value target-type=Foo, for extra context.
 //  log := mainLogger.WithName("reconcilers").WithValues("target-type", "Foo")
@@ -36,64 +36,83 @@
 //  // later on...
 //  log.Info("setting field foo on object", "value", targetValue, "object", object)
 //
-// Depending on our logging implementation, we could then make logging decisions based on field values
-// (like only logging such events for objects in a certain namespace), or copy the structured
-// information into a structured log store.
+// Depending on our logging implementation, we could then make logging decisions
+// based on field values (like only logging such events for objects in a certain
+// namespace), or copy the structured information into a structured log store.
 //
-// For logging errors, Logger has a method called Error.  Suppose we wanted to log an
-// error while reconciling.  With the traditional log package, we might write
+// For logging errors, Logger has a method called Error.  Suppose we wanted to
+// log an error while reconciling.  With the traditional log package, we might
+// write:
 //   log.Errorf("unable to reconcile object %s/%s: %v", object.Namespace, object.Name, err)
 //
-// With logr, we'd instead write
+// With logr, we'd instead write:
 //   // assuming the above setup for log
 //   log.Error(err, "unable to reconcile object", "object", object)
 //
 // This functions similarly to:
 //   log.Info("unable to reconcile object", "error", err, "object", object)
 //
-// However, it ensures that a standard key for the error value ("error") is used across all
-// error logging.  Furthermore, certain implementations may choose to attach additional
-// information (such as stack traces) on calls to Error, so it's preferred to use Error
-// to log errors.
+// However, it ensures that a standard key for the error value ("error") is used
+// across all error logging.  Furthermore, certain implementations may choose to
+// attach additional information (such as stack traces) on calls to Error, so
+// it's preferred to use Error to log errors.
 //
 // Parts of a log line
 //
 // Each log message from a Logger has four types of context:
 // logger name, log verbosity, log message, and the named values.
 //
-// The Logger name constists of a series of name "segments" added by successive calls to WithName.
-// These name segments will be joined in some way by the underlying implementation.  It is strongly
-// reccomended that name segements contain simple identifiers (letters, digits, and hyphen), and do
-// not contain characters that could muddle the log output or confuse the joining operation (e.g.
-// whitespace, commas, periods, slashes, brackets, quotes, etc).
+// The Logger name constists of a series of name "segments" added by successive
+// calls to WithName.  These name segments will be joined in some way by the
+// underlying implementation.  It is strongly reccomended that name segements
+// contain simple identifiers (letters, digits, and hyphen), and do not contain
+// characters that could muddle the log output or confuse the joining operation
+// (e.g.  whitespace, commas, periods, slashes, brackets, quotes, etc).
 //
-// Log verbosity represents how little a log matters.  Level zero, the default, matters most.
-// Increasing levels matter less and less.  Try to avoid lots of different verbosity levels,
-// and instead provide useful keys, logger names, and log messages for users to filter on.
-// It's illegal to pass a log level below zero.
+// Log verbosity represents how little a log matters.  Level zero, the default,
+// matters most.  Increasing levels matter less and less.  Try to avoid lots of
+// different verbosity levels, and instead provide useful keys, logger names,
+// and log messages for users to filter on.  It's illegal to pass a log level
+// below zero.
 //
-// The log message consists of a constant message attached to the the log line.  This
-// should generally be a simple description of what's occuring, and should never be a format string.
+// The log message consists of a constant message attached to the the log line.
+// This should generally be a simple description of what's occuring, and should
+// never be a format string.
 //
-// Variable information can then be attached using named values (key/value pairs).  Keys are arbitrary
-// strings, while values may be any Go value.
+// Variable information can then be attached using named values (key/value
+// pairs).  Keys are arbitrary strings, while values may be any Go value.
 //
 // Key Naming Conventions
 //
-// While users are generally free to use key names of their choice, it's generally best to avoid
-// using the following keys, as they're frequently used by implementations:
+// Keys are not strictly required to conform to any specification or regex, but
+// it is recommended that they:
+//   * be human-readable and meaningful (not auto-generated or simple ordinals)
+//   * be constant (not dependent on input data)
+//   * contain only printable characters
+//   * not contain whitespace or punctuation
 //
-// - `"error"`: the underlying error value in the `Error` method.
-// - `"stacktrace"`: the stack trace associated with a particular log line or error
-//                   (often from the `Error` message).
+// These guidelines help ensure that log data is processed properly regardless
+// of the log implementation.  For example, log implementations will try to
+// output JSON data or will store data for later database (e.g. SQL) queries.
+//
+// While users are generally free to use key names of their choice, it's
+// generally best to avoid using the following keys, as they're frequently used
+// by implementations:
+//
 // - `"caller"`: the calling information (file/line) of a particular log line.
-// - `"msg"`: the log message.
+// - `"error"`: the underlying error value in the `Error` method.
 // - `"level"`: the log level.
+// - `"logger"`: the name of the associated logger.
+// - `"msg"`: the log message.
+// - `"stacktrace"`: the stack trace associated with a particular log line or
+//                   error (often from the `Error` message).
 // - `"ts"`: the timestamp for a log line.
 //
-// Implementations are encouraged to make use of these keys to represent the above
-// concepts, when neccessary (for example, in a pure-JSON output form, it would be
-// necessary to represent at least message and timestamp as ordinary named values).
+// Implementations are encouraged to make use of these keys to represent the
+// above concepts, when neccessary (for example, in a pure-JSON output form, it
+// would be necessary to represent at least message and timestamp as ordinary
+// named values).
+//
 package logr
 
 // TODO: consider adding back in format strings if they're really needed
