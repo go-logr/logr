@@ -140,7 +140,7 @@ Kubernetes codebase):
 
 - `klog.V(4).Infof("Client is returning errors: code %v, error %v",
   responseCode, err)` becomes `logger.V(4).Error(error, "client returned an
-  error", "code", responseCode)
+  error", "code", responseCode)`
 
 - `klog.V(4).Infof("Got a Retry-After %ds response for attempt %d to %v",
   seconds, retries, url)` becomes `logger.V(4).Info("got a retry-after
