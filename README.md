@@ -75,8 +75,8 @@ There are implementations for the following logging libraries:
 **V-levels give operators an easy way to control the chattiness of log
 operations**.  V-levels provide a way for a given package to distinguish
 the relative importance or verbosity of a given log message.  Then, if
-a particular logger or package is is logging too many messages, the user
-of the package can simply chang the v-levels for that library. 
+a particular logger or package is logging too many messages, the user
+of the package can simply change the v-levels for that library. 
 
 ## Why not more named levels, like Warning?
 
@@ -139,7 +139,7 @@ For instance, consider the following examples (all taken from spots in the
 Kubernetes codebase):
 
 - `klog.V(4).Infof("Client is returning errors: code %v, error %v",
-  responseCode, err)` becomes `logger.V(4).Error(error, "client returned an
+  responseCode, err)` becomes `logger.Error(err, "client returned an
   error", "code", responseCode)`
 
 - `klog.V(4).Infof("Got a Retry-After %ds response for attempt %d to %v",
