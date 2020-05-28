@@ -128,15 +128,19 @@ limitations under the License.
 // above concepts, when neccessary (for example, in a pure-JSON output form, it
 // would be necessary to represent at least message and timestamp as ordinary
 // named values).
-//
 package logr
 
 // TODO: consider adding back in format strings if they're really needed
 // TODO: consider other bits of zap/zapcore functionality like ObjectMarshaller (for arbitrary objects)
 // TODO: consider other bits of glog functionality like Flush, InfoDepth, OutputStats
 
-// InfoLogger represents the ability to log non-error messages, at a particular verbosity.
-type InfoLogger interface {
+// Logger represents the ability to log messages, both errors and not.
+type Logger interface {
+	// Enabled tests whether this Logger is enabled.  For example, commandline
+	// flags might be used to set the logging verbosity and disable some info
+	// logs.
+	Enabled() bool
+
 	// Info logs a non-error message with the given key/value pairs as context.
 	//
 	// The msg argument should be used to add some constant description to
@@ -144,19 +148,6 @@ type InfoLogger interface {
 	// variable information.  The key/value pairs should alternate string
 	// keys and arbitrary values.
 	Info(msg string, keysAndValues ...interface{})
-
-	// Enabled tests whether this InfoLogger is enabled.  For example,
-	// commandline flags might be used to set the logging verbosity and disable
-	// some info logs.
-	Enabled() bool
-}
-
-// Logger represents the ability to log messages, both errors and not.
-type Logger interface {
-	// All Loggers implement InfoLogger.  Calling InfoLogger methods directly on
-	// a Logger value is equivalent to calling them on a V(0) InfoLogger.  For
-	// example, logger.Info() produces the same result as logger.V(0).Info.
-	InfoLogger
 
 	// Error logs an error, with the given message and key/value pairs as context.
 	// It functions similarly to calling Info with the "error" named value, but may
@@ -168,10 +159,11 @@ type Logger interface {
 	// triggered this log line, if present.
 	Error(err error, msg string, keysAndValues ...interface{})
 
-	// V returns an InfoLogger value for a specific verbosity level.  A higher
-	// verbosity level means a log message is less important.  It's illegal to
-	// pass a log level less than zero.
-	V(level int) InfoLogger
+	// V returns an Logger value for a specific verbosity level, relative to
+	// this Logger.  In other words, V values are additive.  V higher verbosity
+	// level means a log message is less important.  It's illegal to pass a log
+	// level less than zero.
+	V(level int) Logger
 
 	// WithValues adds some key-value pairs of context to a logger.
 	// See Info for documentation on how key/value pairs work.
