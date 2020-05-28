@@ -40,6 +40,7 @@ There are implementations for the following logging libraries:
 - **go.uber.org/zap**: [zapr](https://github.com/go-logr/zapr)
 - **log** (the Go standard library logger):
   [stdr](https://github.com/go-logr/stdr)
+- **github.com/sirupsen/logrus**: [logrusr](https://github.com/bombsimon/logrusr)
 
 # FAQ
 
