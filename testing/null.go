@@ -35,7 +35,7 @@ func (_ NullLogger) Error(_ error, _ string, _ ...interface{}) {
 	// Do nothing.
 }
 
-func (log NullLogger) V(_ int) logr.InfoLogger {
+func (log NullLogger) V(_ int) logr.Logger {
 	return log
 }
 
