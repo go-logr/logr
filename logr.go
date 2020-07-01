@@ -176,3 +176,7 @@ type Logger interface {
 	// (see the package documentation for more information).
 	WithName(name string) Logger
 }
+
+// InfoLogger provides compatibility with code that relies on the v0.1.0 interface
+// Deprecated: use Logger instead. This will be removed in a future release.
+type InfoLogger = Logger
