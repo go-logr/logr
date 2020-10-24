@@ -139,6 +139,10 @@ limitations under the License.
 //   }
 package logr
 
+import (
+	"context"
+)
+
 // TODO: consider adding back in format strings if they're really needed
 // TODO: consider other bits of zap/zapcore functionality like ObjectMarshaller (for arbitrary objects)
 // TODO: consider other bits of glog functionality like Flush, InfoDepth, OutputStats
@@ -189,3 +193,30 @@ type Logger interface {
 // InfoLogger provides compatibility with code that relies on the v0.1.0 interface
 // Deprecated: use Logger instead. This will be removed in a future release.
 type InfoLogger = Logger
+
+type contextKey struct{}
+
+// FromContext returns a Logger constructed from ctx or nil if no
+// logger details are found.
+func FromContext(ctx context.Context) Logger {
+	if v, ok := ctx.Value(contextKey{}).(Logger); ok {
+		return v
+	}
+
+	return nil
+}
+
+// FromContextOrDiscard returns a Logger constructed from ctx or a Logger
+// that discards all messages if no logger details are found.
+func FromContextOrDiscard(ctx context.Context) Logger {
+	if v, ok := ctx.Value(contextKey{}).(Logger); ok {
+		return v
+	}
+
+	return discardLogger{}
+}
+
+// NewContext returns a new context derived from ctx that embeds the Logger.
+func NewContext(ctx context.Context, l Logger) context.Context {
+	return context.WithValue(ctx, contextKey{}, l)
+}
