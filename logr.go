@@ -142,7 +142,7 @@ import (
 
 // TODO: consider adding back in format strings if they're really needed
 // TODO: consider other bits of zap/zapcore functionality like ObjectMarshaller (for arbitrary objects)
-// TODO: consider other bits of glog functionality like Flush, InfoDepth, OutputStats
+// TODO: consider other bits of glog functionality like Flush, OutputStats
 
 // Logger represents the ability to log messages, both errors and not.
 type Logger interface {
@@ -218,4 +218,47 @@ func FromContextOrDiscard(ctx context.Context) Logger {
 // NewContext returns a new context derived from ctx that embeds the Logger.
 func NewContext(ctx context.Context, l Logger) context.Context {
 	return context.WithValue(ctx, contextKey{}, l)
+}
+
+// CallDepthLogger represents a Logger that knows how to climb the call stack
+// to identify the original call site and can offset the depth by a specified
+// number of frames.  This is useful for users who have helper functions
+// between the "real" call site and the actual calls to Logger methods.
+// Implementations that log information about the call site (such as file,
+// function, or line) would otherwise log information about the intermediate
+// helper functions.
+//
+// This is an optional interface and implementations are not required to
+// support it.
+type CallDepthLogger interface {
+	Logger
+
+	// WithCallDepth returns a Logger that will offset the call stack by the
+	// specified number of frames when logging call site information.  If depth
+	// is 0 the attribution should be to the direct caller of this method.  If
+	// depth is 1 the attribution should skip 1 call frame, and so on.
+	// Successive calls to this are additive.
+	WithCallDepth(depth int) Logger
+}
+
+// WithCallDepth returns a Logger that will offset the call stack by the
+// specified number of frames when logging call site information, if possible.
+// This is useful for users who have helper functions between the "real" call
+// site and the actual calls to Logger methods.  If depth is 0 the attribution
+// should be to the direct caller of this function.  If depth is 1 the
+// attribution should skip 1 call frame, and so on.  Successive calls to this
+// are additive.
+//
+// If the underlying log implementation supports the CallDepthLogger interface,
+// the WithCallDepth method will be called and the result returned.  If the
+// implementation does not support CallDepthLogger, the original Logger will be
+// returned.
+//
+// Callers which care about whether this was supported or not should test for
+// CallDepthLogger support themselves.
+func WithCallDepth(logger Logger, depth int) Logger {
+	if decorator, ok := logger.(CallDepthLogger); ok {
+		return decorator.WithCallDepth(depth)
+	}
+	return logger
 }
