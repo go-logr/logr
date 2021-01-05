@@ -190,7 +190,9 @@ type Logger interface {
 // InfoLogger provides compatibility with code that relies on the v0.1.0
 // interface.
 //
-// Deprecated: use Logger instead. This will be removed in a future release.
+// Deprecated: InfoLogger is an artifact of early versions of this API.  New
+// users should never use it and existing users should use Logger instead. This
+// will be removed in a future release.
 type InfoLogger = Logger
 
 type contextKey struct{}
@@ -212,7 +214,7 @@ func FromContextOrDiscard(ctx context.Context) Logger {
 		return v
 	}
 
-	return discardLogger{}
+	return Discard()
 }
 
 // NewContext returns a new context derived from ctx that embeds the Logger.
