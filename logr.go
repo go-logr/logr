@@ -14,18 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package logr defines abstract interfaces for logging.  Packages can depend on
-// these interfaces and callers can implement logging in whatever way is
-// appropriate.
-//
 // This design derives from Dave Cheney's blog:
 //     http://dave.cheney.net/2015/11/05/lets-talk-about-logging
 //
 // This is a BETA grade API.  Until there is a significant 2nd implementation,
 // I don't really know how it will change.
-//
-// The logging specifically makes it non-trivial to use format strings, to encourage
-// attaching structured information instead of unstructured format strings.
+
+// Package logr defines abstract interfaces for logging.  Packages can depend on
+// these interfaces and callers can implement logging in whatever way is
+// appropriate.
 //
 // Usage
 //
@@ -114,14 +111,14 @@ limitations under the License.
 // generally best to avoid using the following keys, as they're frequently used
 // by implementations:
 //
-// - `"caller"`: the calling information (file/line) of a particular log line.
-// - `"error"`: the underlying error value in the `Error` method.
-// - `"level"`: the log level.
-// - `"logger"`: the name of the associated logger.
-// - `"msg"`: the log message.
-// - `"stacktrace"`: the stack trace associated with a particular log line or
-//                   error (often from the `Error` message).
-// - `"ts"`: the timestamp for a log line.
+//   * `"caller"`: the calling information (file/line) of a particular log line.
+//   * `"error"`: the underlying error value in the `Error` method.
+//   * `"level"`: the log level.
+//   * `"logger"`: the name of the associated logger.
+//   * `"msg"`: the log message.
+//   * `"stacktrace"`: the stack trace associated with a particular log line or
+//                     error (often from the `Error` message).
+//   * `"ts"`: the timestamp for a log line.
 //
 // Implementations are encouraged to make use of these keys to represent the
 // above concepts, when necessary (for example, in a pure-JSON output form, it
@@ -190,7 +187,9 @@ type Logger interface {
 	WithName(name string) Logger
 }
 
-// InfoLogger provides compatibility with code that relies on the v0.1.0 interface
+// InfoLogger provides compatibility with code that relies on the v0.1.0
+// interface.
+//
 // Deprecated: use Logger instead. This will be removed in a future release.
 type InfoLogger = Logger
 
