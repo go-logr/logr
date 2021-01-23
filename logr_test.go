@@ -74,3 +74,39 @@ func TestContext(t *testing.T) {
 		t.Errorf("expected output to be the same as input: got in=%p, out=%p", logger, out)
 	}
 }
+
+// testCallDepthLogger is a Logger just for testing that does nothing.
+type testCallDepthLogger struct {
+	*testLogger
+	depth int
+}
+
+func (l *testCallDepthLogger) WithCallDepth(depth int) Logger {
+	return &testCallDepthLogger{l.testLogger, l.depth + depth}
+}
+
+// Verify that it actually implements the interface
+var _ CallDepthLogger = &testCallDepthLogger{}
+
+func TestWithCallDepth(t *testing.T) {
+	// Test an impl that does not support it.
+	t.Run("not supported", func(t *testing.T) {
+		in := &testLogger{}
+		out := WithCallDepth(in, 42)
+		if out.(*testLogger) != in {
+			t.Errorf("expected output to be the same as input: got in=%p, out=%p", in, out)
+		}
+	})
+
+	// Test an impl that does support it.
+	t.Run("supported", func(t *testing.T) {
+		in := &testCallDepthLogger{&testLogger{}, 0}
+		out := WithCallDepth(in, 42)
+		if out.(*testCallDepthLogger) == in {
+			t.Errorf("expected output to be different than input: got in=out=%p", in)
+		}
+		if cdl := out.(*testCallDepthLogger); cdl.depth != 42 {
+			t.Errorf("expected depth=42, got %d", cdl.depth)
+		}
+	})
+}
