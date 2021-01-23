@@ -57,8 +57,8 @@ func TestContext(t *testing.T) {
 	}
 	if out := FromContextOrDiscard(ctx); out == nil {
 		t.Errorf("expected non-nil logger")
-	} else if _, ok := out.(discardLogger); !ok {
-		t.Errorf("expected a discardLogger, got %#v", out)
+	} else if _, ok := out.(DiscardLogger); !ok {
+		t.Errorf("expected a DiscardLogger, got %#v", out)
 	}
 
 	logger := &testLogger{}

@@ -23,7 +23,7 @@ import (
 
 func TestDiscard(t *testing.T) {
 	l := Discard()
-	if _, ok := l.(discardLogger); !ok {
+	if _, ok := l.(DiscardLogger); !ok {
 		t.Error("did not return the expected underlying type")
 	}
 	// Verify that none of the methods panic, there is not more we can test.
