@@ -140,16 +140,12 @@ import (
 	"context"
 )
 
-// TODO: consider adding back in format strings if they're really needed
-// TODO: consider other bits of zap/zapcore functionality like ObjectMarshaller (for arbitrary objects)
-// TODO: consider other bits of glog functionality like Flush, OutputStats
-
-// Logger represents the ability to log messages, both errors and not.
-type Logger interface {
-	// Enabled tests whether this Logger is enabled.  For example, commandline
+// LogSink represents the ability to log messages, both errors and not.
+type LogSink interface {
+	// Enabled tests whether this LogSink is enabled.  For example, commandline
 	// flags might be used to set the logging verbosity and disable some info
 	// logs.
-	Enabled() bool
+	Enabled(level int) bool
 
 	// Info logs a non-error message with the given key/value pairs as context.
 	//
@@ -157,7 +153,7 @@ type Logger interface {
 	// the log line.  The key/value pairs can then be used to add additional
 	// variable information.  The key/value pairs should alternate string
 	// keys and arbitrary values.
-	Info(msg string, keysAndValues ...interface{})
+	Info(level int, msg string, keysAndValues ...interface{})
 
 	// Error logs an error, with the given message and key/value pairs as context.
 	// It functions similarly to calling Info with the "error" named value, but may
@@ -169,22 +165,62 @@ type Logger interface {
 	// triggered this log line, if present.
 	Error(err error, msg string, keysAndValues ...interface{})
 
-	// V returns an Logger value for a specific verbosity level, relative to
-	// this Logger.  In other words, V values are additive.  V higher verbosity
-	// level means a log message is less important.  It's illegal to pass a log
-	// level less than zero.
-	V(level int) Logger
-
 	// WithValues adds some key-value pairs of context to a logger.
 	// See Info for documentation on how key/value pairs work.
-	WithValues(keysAndValues ...interface{}) Logger
+	WithValues(keysAndValues ...interface{}) LogSink
 
 	// WithName adds a new element to the logger's name.
 	// Successive calls with WithName continue to append
 	// suffixes to the logger's name.  It's strongly recommended
 	// that name segments contain only letters, digits, and hyphens
 	// (see the package documentation for more information).
-	WithName(name string) Logger
+	WithName(name string) LogSink
+}
+
+func New(level int, sink LogSink) Logger {
+	return Logger{
+		level: level,
+		sink:  sink,
+	}
+}
+
+// Logger is a concrete type, for performance reasons, but all the real work is
+// passed on to a LogSink.  Implementations of LogSink should provide their own
+// constructors thsat return Logger, not LogSink.
+type Logger struct {
+	level int
+	sink  LogSink
+}
+
+func (l Logger) Enabled() bool {
+	return l.sink.Enabled(l.level)
+}
+
+func (l Logger) Info(msg string, keysAndValues ...interface{}) {
+	if l.Enabled() {
+		l.sink.Info(l.level, msg, keysAndValues...)
+	}
+}
+
+func (l Logger) Error(err error, msg string, keysAndValues ...interface{}) {
+	if l.Enabled() {
+		l.sink.Error(err, msg, keysAndValues...)
+	}
+}
+
+func (l Logger) V(level int) Logger {
+	l.level += level
+	return l
+}
+
+func (l Logger) WithValues(keysAndValues ...interface{}) Logger {
+	l.sink = l.sink.WithValues(keysAndValues...)
+	return l
+}
+
+func (l Logger) WithName(name string) Logger {
+	l.sink = l.sink.WithName(name)
+	return l
 }
 
 // InfoLogger provides compatibility with code that relies on the v0.1.0
@@ -204,7 +240,8 @@ func FromContext(ctx context.Context) Logger {
 		return v
 	}
 
-	return nil
+	//FIXME: what to do here?  Could switch to pointers, but yuck?
+	return Logger{}
 }
 
 // FromContextOrDiscard returns a Logger constructed from ctx or a Logger
@@ -232,15 +269,13 @@ func NewContext(ctx context.Context, l Logger) context.Context {
 //
 // This is an optional interface and implementations are not required to
 // support it.
-type CallDepthLogger interface {
-	Logger
-
+type CallDepthLogSink interface {
 	// WithCallDepth returns a Logger that will offset the call stack by the
 	// specified number of frames when logging call site information.  If depth
 	// is 0 the attribution should be to the direct caller of this method.  If
 	// depth is 1 the attribution should skip 1 call frame, and so on.
 	// Successive calls to this are additive.
-	WithCallDepth(depth int) Logger
+	WithCallDepth(depth int) LogSink
 }
 
 // WithCallDepth returns a Logger that will offset the call stack by the
@@ -259,8 +294,8 @@ type CallDepthLogger interface {
 // Callers which care about whether this was supported or not should test for
 // CallDepthLogger support themselves.
 func WithCallDepth(logger Logger, depth int) Logger {
-	if decorator, ok := logger.(CallDepthLogger); ok {
-		return decorator.WithCallDepth(depth)
+	if decorator, ok := logger.sink.(CallDepthLogSink); ok {
+		logger.sink = decorator.WithCallDepth(depth)
 	}
 	return logger
 }

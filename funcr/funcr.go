@@ -33,14 +33,15 @@ import (
 
 // New returns a logr.Logger which is implemented by a function.
 func New(fn func(prefix, args string), opts Options) logr.Logger {
-	return fnlogger{
-		level:     0,
+	fnl := fnlogger{
 		prefix:    "",
 		values:    nil,
+		depth:     0,
 		write:     fn,
 		logCaller: opts.LogCaller,
 		verbosity: opts.Verbosity,
 	}
+	return logr.New(0, fnl)
 }
 
 type Options struct {
@@ -63,9 +64,9 @@ const (
 )
 
 type fnlogger struct {
-	level     int
 	prefix    string
 	values    []interface{}
+	depth     int
 	write     func(prefix, args string)
 	logCaller MessageClass
 	verbosity int
@@ -269,29 +270,27 @@ func (l fnlogger) caller() callerID {
 	// +1 for this frame, +1 for logr itself.
 	// FIXME: Maybe logr should offer a clue as to how many frames are
 	// needed here?  Or is it part of the contract to LogSinks?
-	_, file, line, ok := runtime.Caller(framesToCaller() + 2)
+	_, file, line, ok := runtime.Caller(framesToCaller() + l.depth + 2)
 	if !ok {
 		return callerID{"<unknown>", 0}
 	}
 	return callerID{filepath.Base(file), line}
 }
 
-func (l fnlogger) Enabled() bool {
-	return l.level <= l.verbosity
+func (l fnlogger) Enabled(level int) bool {
+	return level <= l.verbosity
 }
 
-func (l fnlogger) Info(msg string, kvList ...interface{}) {
-	if l.Enabled() {
-		args := make([]interface{}, 0, 64) // using a constant here impacts perf
-		if l.logCaller == All || l.logCaller == Info {
-			args = append(args, "caller", l.caller())
-		}
-		args = append(args, "level", l.level, "msg", msg)
-		args = append(args, l.values...)
-		args = append(args, kvList...)
-		argsStr := flatten(args...)
-		l.write(l.prefix, argsStr)
+func (l fnlogger) Info(level int, msg string, kvList ...interface{}) {
+	args := make([]interface{}, 0, 64) // using a constant here impacts perf
+	if l.logCaller == All || l.logCaller == Info {
+		args = append(args, "caller", l.caller())
 	}
+	args = append(args, "level", level, "msg", msg)
+	args = append(args, l.values...)
+	args = append(args, kvList...)
+	argsStr := flatten(args...)
+	l.write(l.prefix, argsStr)
 }
 
 func (l fnlogger) Error(err error, msg string, kvList ...interface{}) {
@@ -311,15 +310,10 @@ func (l fnlogger) Error(err error, msg string, kvList ...interface{}) {
 	l.write(l.prefix, argsStr)
 }
 
-func (l fnlogger) V(level int) logr.Logger {
-	l.level += level
-	return l
-}
-
 // WithName returns a new Logger with the specified name appended.  funcr
 // uses '/' characters to separate name elements.  Callers should not pass '/'
 // in the provided name string, but this library does not actually enforce that.
-func (l fnlogger) WithName(name string) logr.Logger {
+func (l fnlogger) WithName(name string) logr.LogSink {
 	if len(l.prefix) > 0 {
 		l.prefix = l.prefix + "/"
 	}
@@ -327,11 +321,17 @@ func (l fnlogger) WithName(name string) logr.Logger {
 	return l
 }
 
-func (l fnlogger) WithValues(kvList ...interface{}) logr.Logger {
+func (l fnlogger) WithValues(kvList ...interface{}) logr.LogSink {
 	// Three slice args forces a copy.
 	n := len(l.values)
 	l.values = append(l.values[:n:n], kvList...)
 	return l
 }
 
-var _ logr.Logger = fnlogger{}
+func (l fnlogger) WithCallDepth(depth int) logr.LogSink {
+	l.depth += depth
+	return l
+}
+
+var _ logr.LogSink = fnlogger{}
+var _ logr.CallDepthLogSink = fnlogger{}
