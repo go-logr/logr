@@ -39,6 +39,7 @@ func New(fn func(prefix, args string), opts Options) logr.Logger {
 		values:    nil,
 		write:     fn,
 		logCaller: opts.LogCaller,
+		verbosity: opts.Verbosity,
 	}
 }
 
@@ -46,6 +47,10 @@ type Options struct {
 	// LogCaller tells funcr to add a "caller" key to some or all log lines.
 	// This has some overhead, so some users might not want it.
 	LogCaller MessageClass
+
+	// Verbosity tells funcr which V logs to be write.  Higher values enable
+	// more logs.
+	Verbosity int
 }
 
 type MessageClass int
@@ -63,6 +68,7 @@ type fnlogger struct {
 	values    []interface{}
 	write     func(prefix, args string)
 	logCaller MessageClass
+	verbosity int
 }
 
 // Magic string for intermediate frames that we should ignore.
@@ -271,7 +277,7 @@ func (l fnlogger) caller() callerID {
 }
 
 func (l fnlogger) Enabled() bool {
-	return l.level == 0
+	return l.level <= l.verbosity
 }
 
 func (l fnlogger) Info(msg string, kvList ...interface{}) {
