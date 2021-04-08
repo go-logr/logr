@@ -20,10 +20,13 @@ package funcr
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"runtime"
+
+	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 )
@@ -88,9 +91,137 @@ func flatten(kvList ...interface{}) string {
 }
 
 func pretty(value interface{}) string {
-	// TODO: This is not fast. Most of the overhead goes here.
-	jb, _ := json.Marshal(value)
-	return string(jb)
+	return prettyWithFlags(value, 0)
+}
+
+const (
+	flagRawString = 0x1
+)
+
+// TODO: This is not fast. Most of the overhead goes here.
+func prettyWithFlags(value interface{}, flags uint32) string {
+	// Handling the most common types without reflect is a small perf win.
+	switch v := value.(type) {
+	case bool:
+		return strconv.FormatBool(v)
+	case string:
+		if flags&flagRawString > 0 {
+			return v
+		}
+		// This is empirically faster than strings.Builder.
+		return `"` + v + `"`
+	case int:
+		return strconv.FormatInt(int64(v), 10)
+	case int8:
+		return strconv.FormatInt(int64(v), 10)
+	case int16:
+		return strconv.FormatInt(int64(v), 10)
+	case int32:
+		return strconv.FormatInt(int64(v), 10)
+	case int64:
+		return strconv.FormatInt(int64(v), 10)
+	case uint:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint8:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint16:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint32:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint64:
+		return strconv.FormatUint(v, 10)
+	case uintptr:
+		return strconv.FormatUint(uint64(v), 10)
+	case float32:
+		return strconv.FormatFloat(float64(v), 'f', -1, 32)
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	}
+
+	buf := bytes.NewBuffer(make([]byte, 0, 256))
+	t := reflect.TypeOf(value)
+	if t == nil {
+		return "null"
+	}
+	v := reflect.ValueOf(value)
+	switch t.Kind() {
+	case reflect.Bool:
+		return strconv.FormatBool(v.Bool())
+	case reflect.String:
+		if flags&flagRawString > 0 {
+			return v.String()
+		}
+		// This is empirically faster than strings.Builder.
+		return `"` + v.String() + `"`
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(int64(v.Int()), 10)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return strconv.FormatUint(uint64(v.Uint()), 10)
+	case reflect.Float32:
+		return strconv.FormatFloat(float64(v.Float()), 'f', -1, 32)
+	case reflect.Float64:
+		return strconv.FormatFloat(v.Float(), 'f', -1, 64)
+	case reflect.Struct:
+		buf.WriteRune('{')
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
+			if f.PkgPath != "" {
+				// reflect says this field is only defined for non-exported fields.
+				continue
+			}
+			if i > 0 {
+				buf.WriteRune(',')
+			}
+			buf.WriteRune('"')
+			name := f.Name
+			if tag, found := f.Tag.Lookup("json"); found {
+				if comma := strings.Index(tag, ","); comma != -1 {
+					name = tag[:comma]
+				} else {
+					name = tag
+				}
+			}
+			buf.WriteString(name)
+			buf.WriteRune('"')
+			buf.WriteRune(':')
+			buf.WriteString(pretty(v.Field(i).Interface()))
+		}
+		buf.WriteRune('}')
+		return buf.String()
+	case reflect.Slice, reflect.Array:
+		buf.WriteRune('[')
+		for i := 0; i < v.Len(); i++ {
+			if i > 0 {
+				buf.WriteRune(',')
+			}
+			e := v.Index(i)
+			buf.WriteString(pretty(e.Interface()))
+		}
+		buf.WriteRune(']')
+		return buf.String()
+	case reflect.Map:
+		buf.WriteRune('{')
+		// This does not sort the map keys, for best perf.
+		it := v.MapRange()
+		i := 0
+		for it.Next() {
+			if i > 0 {
+				buf.WriteRune(',')
+			}
+			// JSON only does string keys.
+			buf.WriteRune('"')
+			buf.WriteString(prettyWithFlags(it.Key().Interface(), flagRawString))
+			buf.WriteRune('"')
+			buf.WriteRune(':')
+			buf.WriteString(pretty(it.Value().Interface()))
+			i++
+		}
+		buf.WriteRune('}')
+		return buf.String()
+	case reflect.Ptr, reflect.Interface:
+		return pretty(v.Elem().Interface())
+	}
+	return fmt.Sprintf(`"<unhandled-%s>"`, t.Kind().String())
 }
 
 type callerID struct {
@@ -118,7 +249,7 @@ func (l fnlogger) Info(msg string, kvList ...interface{}) {
 		builtinStr := flatten(builtin...)
 		fixedStr := flatten(l.values...)
 		userStr := flatten(kvList...)
-		l.write(l.prefix, " ", builtinStr, " ", fixedStr, " ", userStr)
+		l.write(l.prefix, builtinStr, fixedStr, userStr)
 	}
 }
 
@@ -134,7 +265,7 @@ func (l fnlogger) Error(err error, msg string, kvList ...interface{}) {
 	errStr := flatten("error", loggableErr)
 	fixedStr := flatten(l.values...)
 	userStr := flatten(kvList...)
-	l.write(l.prefix, " ", builtinStr, " ", errStr, " ", fixedStr, " ", userStr)
+	l.write(l.prefix, builtinStr, errStr, fixedStr, userStr)
 }
 
 func (l fnlogger) V(level int) logr.Logger {
