@@ -24,7 +24,7 @@ import (
 	"github.com/go-logr/logr/funcr"
 )
 
-func noop(args ...string) {
+func noop(prefix, args string) {
 }
 
 func BenchmarkInfoOneArg(b *testing.B) {
