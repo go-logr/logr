@@ -32,20 +32,37 @@ import (
 )
 
 // New returns a logr.Logger which is implemented by a function.
-func New(fn func(args ...string)) logr.Logger {
+func New(fn func(args ...string), opts Options) logr.Logger {
 	return fnlogger{
-		level:  0,
-		prefix: "",
-		values: nil,
-		write:  fn,
+		level:     0,
+		prefix:    "",
+		values:    nil,
+		write:     fn,
+		logCaller: opts.LogCaller,
 	}
 }
 
+type Options struct {
+	// LogCaller tells funcr to add a "caller" key to some or all log lines.
+	// This has some overhead, so some users might not want it.
+	LogCaller MessageClass
+}
+
+type MessageClass int
+
+const (
+	None MessageClass = iota
+	All
+	Info
+	Error
+)
+
 type fnlogger struct {
-	level  int
-	prefix string
-	values []interface{}
-	write  func(args ...string)
+	level     int
+	prefix    string
+	values    []interface{}
+	write     func(args ...string)
+	logCaller MessageClass
 }
 
 // Magic string for intermediate frames that we should ignore.
@@ -260,7 +277,9 @@ func (l fnlogger) Enabled() bool {
 func (l fnlogger) Info(msg string, kvList ...interface{}) {
 	if l.Enabled() {
 		builtin := make([]interface{}, 0, 8)
-		builtin = append(builtin, "caller", l.caller())
+		if l.logCaller == All || l.logCaller == Info {
+			builtin = append(builtin, "caller", l.caller())
+		}
 		builtin = append(builtin, "level", l.level, "msg", msg)
 		builtinStr := flatten(builtin...)
 		fixedStr := flatten(l.values...)
@@ -271,7 +290,9 @@ func (l fnlogger) Info(msg string, kvList ...interface{}) {
 
 func (l fnlogger) Error(err error, msg string, kvList ...interface{}) {
 	builtin := make([]interface{}, 0, 8)
-	builtin = append(builtin, "caller", l.caller())
+	if l.logCaller == All || l.logCaller == Error {
+		builtin = append(builtin, "caller", l.caller())
+	}
 	builtin = append(builtin, "msg", msg)
 	builtinStr := flatten(builtin...)
 	var loggableErr interface{}
