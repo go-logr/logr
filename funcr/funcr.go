@@ -123,7 +123,7 @@ func (l fnlogger) Info(msg string, kvList ...interface{}) {
 }
 
 func (l fnlogger) Error(err error, msg string, kvList ...interface{}) {
-	builtin := make([]interface{}, 0, 4)
+	builtin := make([]interface{}, 0, 8)
 	builtin = append(builtin, "caller", l.caller())
 	builtin = append(builtin, "msg", msg)
 	builtinStr := flatten(builtin...)
