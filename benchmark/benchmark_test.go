@@ -21,10 +21,14 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/funcr"
 )
 
+func noop(prefix, args string) {
+}
+
 func BenchmarkInfoOneArg(b *testing.B) {
-	var log logr.Logger = logr.Discard()
+	var log logr.Logger = funcr.New(noop, funcr.Options{})
 
 	for i := 0; i < b.N; i++ {
 		log.Info("this is", "a", "string")
@@ -32,7 +36,7 @@ func BenchmarkInfoOneArg(b *testing.B) {
 }
 
 func BenchmarkInfoSeveralArgs(b *testing.B) {
-	var log logr.Logger = logr.Discard()
+	var log logr.Logger = funcr.New(noop, funcr.Options{})
 
 	for i := 0; i < b.N; i++ {
 		log.Info("multi",
@@ -42,7 +46,7 @@ func BenchmarkInfoSeveralArgs(b *testing.B) {
 }
 
 func BenchmarkV0Info(b *testing.B) {
-	var log logr.Logger = logr.Discard()
+	var log logr.Logger = funcr.New(noop, funcr.Options{})
 
 	for i := 0; i < b.N; i++ {
 		log.V(0).Info("multi",
@@ -52,7 +56,7 @@ func BenchmarkV0Info(b *testing.B) {
 }
 
 func BenchmarkV9Info(b *testing.B) {
-	var log logr.Logger = logr.Discard()
+	var log logr.Logger = funcr.New(noop, funcr.Options{})
 
 	for i := 0; i < b.N; i++ {
 		log.V(9).Info("multi",
@@ -62,7 +66,7 @@ func BenchmarkV9Info(b *testing.B) {
 }
 
 func BenchmarkError(b *testing.B) {
-	var log logr.Logger = logr.Discard()
+	var log logr.Logger = funcr.New(noop, funcr.Options{})
 
 	err := fmt.Errorf("error message")
 	for i := 0; i < b.N; i++ {
@@ -73,7 +77,7 @@ func BenchmarkError(b *testing.B) {
 }
 
 func BenchmarkWithValues(b *testing.B) {
-	var log logr.Logger = logr.Discard()
+	var log logr.Logger = funcr.New(noop, funcr.Options{})
 
 	for i := 0; i < b.N; i++ {
 		l := log.WithValues("k1", "v1", "k2", "v2")
@@ -82,7 +86,7 @@ func BenchmarkWithValues(b *testing.B) {
 }
 
 func BenchmarkWithName(b *testing.B) {
-	var log logr.Logger = logr.Discard()
+	var log logr.Logger = funcr.New(noop, funcr.Options{})
 
 	for i := 0; i < b.N; i++ {
 		l := log.WithName("name")
