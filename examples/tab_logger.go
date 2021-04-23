@@ -82,5 +82,5 @@ func NewTabLogger() logr.Logger {
 	sink := tabLogSink{
 		writer: tabwriter.NewWriter(os.Stderr, 40, 8, 2, '\t', 0),
 	}
-	return logr.New(0, sink)
+	return logr.New(sink)
 }

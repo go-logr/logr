@@ -171,10 +171,9 @@ import (
 
 // New returns a new Logger instance.  This is primarily used by libraries
 // implementing LogSink, rather than end users.
-func New(level int, sink LogSink) Logger {
+func New(sink LogSink) Logger {
 	logger := Logger{
-		level: level,
-		sink:  sink,
+		sink: sink,
 	}
 	if withCallDepth, ok := sink.(CallDepthLogSink); ok {
 		logger.withCallDepth = withCallDepth

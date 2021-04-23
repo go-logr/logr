@@ -41,7 +41,7 @@ func New(fn func(prefix, args string), opts Options) logr.Logger {
 		logCaller: opts.LogCaller,
 		verbosity: opts.Verbosity,
 	}
-	return logr.New(0, fnl)
+	return logr.New(fnl)
 }
 
 type Options struct {

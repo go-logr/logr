@@ -57,7 +57,7 @@ func TestContext(t *testing.T) {
 	}
 
 	sink := &testLogSink{}
-	logger := New(0, sink)
+	logger := New(sink)
 	lctx := NewContext(ctx, logger)
 	if out, err := FromContext(lctx); err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -87,7 +87,7 @@ func TestWithCallDepth(t *testing.T) {
 	// Test an impl that does not support it.
 	t.Run("not supported", func(t *testing.T) {
 		in := &testLogSink{}
-		l := New(0, in)
+		l := New(in)
 		out := l.WithCallDepth(42)
 		if p := out.sink.(*testLogSink); p != in {
 			t.Errorf("expected output to be the same as input: got in=%p, out=%p", in, p)
@@ -97,7 +97,7 @@ func TestWithCallDepth(t *testing.T) {
 	// Test an impl that does support it.
 	t.Run("supported", func(t *testing.T) {
 		in := &testCallDepthLogSink{&testLogSink{}, 0}
-		l := New(0, in)
+		l := New(in)
 		out := l.WithCallDepth(42)
 		if out.sink.(*testCallDepthLogSink) == in {
 			t.Errorf("expected output to be different than input: got in=out=%p", in)
