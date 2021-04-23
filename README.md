@@ -35,11 +35,11 @@ This is a BETA grade API.
 
 There are implementations for the following logging libraries:
 
+- **a function**: [funcr](https://github.com/go-logr/logr/funcr)
 - **github.com/google/glog**: [glogr](https://github.com/go-logr/glogr)
 - **k8s.io/klog**: [klogr](https://git.k8s.io/klog/klogr)
 - **go.uber.org/zap**: [zapr](https://github.com/go-logr/zapr)
-- **log** (the Go standard library logger):
-  [stdr](https://github.com/go-logr/stdr)
+- **log** (the Go standard library logger): [stdr](https://github.com/go-logr/stdr)
 - **github.com/sirupsen/logrus**: [logrusr](https://github.com/bombsimon/logrusr)
 - **github.com/wojas/genericr**: [genericr](https://github.com/wojas/genericr) (makes it easy to implement your own backend)
 - **logfmt** (Heroku style [logging](https://www.brandur.org/logfmt)): [logfmtr](https://github.com/iand/logfmtr)
@@ -60,7 +60,7 @@ There are implementations for the following logging libraries:
   Similarly to searchability, if you maintain conventions around your
   keys, it becomes easy to gather all log lines related to a particular
   concept.
- 
+
 - **Structured logs allow better dimensions of filtering**: if you have
   structure to your logs, you've got more precise control over how much
   information is logged -- you might choose in a particular configuration
@@ -169,7 +169,7 @@ Then gradually choose levels in between as you need them, working your way
 down from 10 (for debug and trace style logs) and up from 1 (for chattier
 info-type logs).
 
-## How do I choose my keys
+## How do I choose my keys?
 
 - make your keys human-readable
 - constant keys are generally a good idea
@@ -179,5 +179,20 @@ info-type logs).
 While key names are mostly unrestricted (and spaces are acceptable),
 it's generally a good idea to stick to printable ascii characters, or at
 least match the general character set of your log lines.
+
+## Why should keys be constant values?
+
+The point of structured logging is to make later log processing easier.  Your
+keys are, effectively, the schema of each log message.  If you use different
+keys across instances of the same log-line, you will make your structured logs
+much harder to use.  `Sprintf()` is for values, not for keys!
+
+## Why is this not a pure interface?
+
+The Logger type is implemented as a struct in order to allow the Go compiler to
+optimize things like high-V Info logs that are not triggered.  Not all of these
+implementations are implemented yet, but this structure was suggested as a way to
+ensure they *can* be implemented.  All of the real work is behind the LogSink
+interface.
 
 [warning-makes-no-sense]: http://dave.cheney.net/2015/11/05/lets-talk-about-logging

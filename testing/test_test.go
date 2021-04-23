@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The logr Authors.
+Copyright 2021 The logr Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,23 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package logr
+package testing
 
 import (
-	"errors"
+	"fmt"
 	"testing"
 )
 
-func TestDiscard(t *testing.T) {
-	l := Discard()
-	if _, ok := l.sink.(DiscardLogger); !ok {
-		t.Error("did not return the expected underlying type")
-	}
-	// Verify that none of the methods panic, there is not more we can test.
-	l.WithName("discard").WithValues("z", 5).Info("Hello world")
-	l.Info("Hello world", "x", 1, "y", 2)
-	l.V(1).Error(errors.New("foo"), "a", 123)
-	if l.Enabled() {
-		t.Error("discard logger must always say it is disabled")
-	}
+func TestTestLogger(t *testing.T) {
+	logger := NewTestLogger(t)
+	logger.Info("info")
+	logger.V(0).Info("V(0).info")
+	logger.V(1).Info("v(1).info")
+	logger.Error(fmt.Errorf("error"), "error")
 }

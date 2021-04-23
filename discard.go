@@ -16,14 +16,20 @@ limitations under the License.
 
 package logr
 
-// Discard returns a valid Logger that discards all messages logged to it.
-// It can be used whenever the caller is not interested in the logs.
+// Discard returns a Logger that discards all messages logged to it.  It can be
+// used whenever the caller is not interested in the logs.
 func Discard() Logger {
-	return Logger{0, DiscardLogger{}}
+	return Logger{
+		level: 0,
+		sink:  DiscardLogger{},
+	}
 }
 
-// DiscardLogger is a Logger that discards all messages.
+// DiscardLogger is a LogSink that discards all messages.
 type DiscardLogger struct{}
+
+// Verify that it actually implements the interface
+var _ LogSink = DiscardLogger{}
 
 func (l DiscardLogger) Enabled(int) bool {
 	return false
@@ -42,6 +48,3 @@ func (l DiscardLogger) WithValues(...interface{}) LogSink {
 func (l DiscardLogger) WithName(string) LogSink {
 	return l
 }
-
-// Verify that it actually implements the interface
-var _ LogSink = DiscardLogger{}
