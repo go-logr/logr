@@ -273,14 +273,6 @@ func (l Logger) WithCallDepth(depth int) Logger {
 	return l
 }
 
-// InfoLogger provides compatibility with code that relies on the v0.1.0
-// interface.
-//
-// Deprecated: InfoLogger is an artifact of early versions of this API.  New
-// users should never use it and existing users should use Logger instead. This
-// will be removed in a future release.
-type InfoLogger = Logger
-
 // contextKey is how we find Loggers in a context.Context.
 type contextKey struct{}
 
@@ -383,23 +375,4 @@ type CallDepthLogSink interface {
 	// depth is 1 the attribution should skip 1 call frame, and so on.
 	// Successive calls to this are additive.
 	WithCallDepth(depth int) LogSink
-}
-
-// WithCallDepth returns a Logger that will offset the call stack by the
-// specified number of frames when logging call site information, if possible.
-// This is useful for users who have helper functions between the "real" call
-// site and the actual calls to Logger methods.  If depth is 0 the attribution
-// should be to the direct caller of this function.  If depth is 1 the
-// attribution should skip 1 call frame, and so on.  Successive calls to this
-// are additive.
-//
-// If the underlying log implementation supports a WithCallDepth(int) method,
-// it will be called and the result returned.  If the implementation does not
-// support CallDepthLogSink, the original Logger will be returned.
-//
-// Deprecated: WithCallDepth is an artifact of early versions of this API.  New
-// users should never use it and existing users should use Logger.WithCallDepth
-// instead. This will be removed in a future release.
-func WithCallDepth(logger Logger, depth int) Logger {
-	return logger.WithCallDepth(depth)
 }

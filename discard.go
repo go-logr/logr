@@ -21,33 +21,33 @@ package logr
 func Discard() Logger {
 	return Logger{
 		level: 0,
-		sink:  DiscardLogger{},
+		sink:  discardLogger{},
 	}
 }
 
-// DiscardLogger is a LogSink that discards all messages.
-type DiscardLogger struct{}
+// discardLogger is a LogSink that discards all messages.
+type discardLogger struct{}
 
 // Verify that it actually implements the interface
-var _ LogSink = DiscardLogger{}
+var _ LogSink = discardLogger{}
 
-func (l DiscardLogger) Init(RuntimeInfo) {
+func (l discardLogger) Init(RuntimeInfo) {
 }
 
-func (l DiscardLogger) Enabled(int) bool {
+func (l discardLogger) Enabled(int) bool {
 	return false
 }
 
-func (l DiscardLogger) Info(int, string, ...interface{}) {
+func (l discardLogger) Info(int, string, ...interface{}) {
 }
 
-func (l DiscardLogger) Error(error, string, ...interface{}) {
+func (l discardLogger) Error(error, string, ...interface{}) {
 }
 
-func (l DiscardLogger) WithValues(...interface{}) LogSink {
+func (l discardLogger) WithValues(...interface{}) LogSink {
 	return l
 }
 
-func (l DiscardLogger) WithName(string) LogSink {
+func (l discardLogger) WithName(string) LogSink {
 	return l
 }
