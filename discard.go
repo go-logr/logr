@@ -31,6 +31,9 @@ type DiscardLogger struct{}
 // Verify that it actually implements the interface
 var _ LogSink = DiscardLogger{}
 
+func (l DiscardLogger) Init(RuntimeInfo) {
+}
+
 func (l DiscardLogger) Enabled(int) bool {
 	return false
 }

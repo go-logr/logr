@@ -34,6 +34,9 @@ type tabLogSink struct {
 
 var _ logr.LogSink = tabLogSink{}
 
+func (_ tabLogSink) Init(info logr.RuntimeInfo) {
+}
+
 func (_ tabLogSink) Enabled(level int) bool {
 	return true
 }

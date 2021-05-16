@@ -24,6 +24,9 @@ import (
 // testLogSink is a Logger just for testing that does nothing.
 type testLogSink struct{}
 
+func (l *testLogSink) Init(RuntimeInfo) {
+}
+
 func (l *testLogSink) Enabled(int) bool {
 	return false
 }

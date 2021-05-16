@@ -33,7 +33,7 @@ import (
 
 // New returns a logr.Logger which is implemented by a function.
 func New(fn func(prefix, args string), opts Options) logr.Logger {
-	fnl := fnlogger{
+	fnl := &fnlogger{
 		prefix:    "",
 		values:    nil,
 		depth:     0,
@@ -267,14 +267,16 @@ type callerID struct {
 }
 
 func (l fnlogger) caller() callerID {
-	// +1 for this frame, +1 for logr itself.
-	// FIXME: Maybe logr should offer a clue as to how many frames are
-	// needed here?  Or is it part of the contract to LogSinks?
-	_, file, line, ok := runtime.Caller(framesToCaller() + l.depth + 2)
+	// +1 for this frame.
+	_, file, line, ok := runtime.Caller(framesToCaller() + l.depth + 1)
 	if !ok {
 		return callerID{"<unknown>", 0}
 	}
 	return callerID{filepath.Base(file), line}
+}
+
+func (l *fnlogger) Init(info logr.RuntimeInfo) {
+	l.depth += info.CallDepth
 }
 
 func (l fnlogger) Enabled(level int) bool {
@@ -313,25 +315,31 @@ func (l fnlogger) Error(err error, msg string, kvList ...interface{}) {
 // WithName returns a new Logger with the specified name appended.  funcr
 // uses '/' characters to separate name elements.  Callers should not pass '/'
 // in the provided name string, but this library does not actually enforce that.
-func (l fnlogger) WithName(name string) logr.LogSink {
-	if len(l.prefix) > 0 {
-		l.prefix = l.prefix + "/"
+func (l *fnlogger) WithName(name string) logr.LogSink {
+	l2 := &fnlogger{}
+	*l2 = *l
+	if len(l2.prefix) > 0 {
+		l.prefix = l2.prefix + "/"
 	}
-	l.prefix += name
+	l2.prefix += name
 	return l
 }
 
-func (l fnlogger) WithValues(kvList ...interface{}) logr.LogSink {
+func (l *fnlogger) WithValues(kvList ...interface{}) logr.LogSink {
+	l2 := &fnlogger{}
+	*l2 = *l
 	// Three slice args forces a copy.
 	n := len(l.values)
-	l.values = append(l.values[:n:n], kvList...)
-	return l
+	l2.values = append(l2.values[:n:n], kvList...)
+	return l2
 }
 
-func (l fnlogger) WithCallDepth(depth int) logr.LogSink {
-	l.depth += depth
-	return l
+func (l *fnlogger) WithCallDepth(depth int) logr.LogSink {
+	l2 := &fnlogger{}
+	*l2 = *l
+	l2.depth += depth
+	return l2
 }
 
-var _ logr.LogSink = fnlogger{}
-var _ logr.CallDepthLogSink = fnlogger{}
+var _ logr.LogSink = &fnlogger{}
+var _ logr.CallDepthLogSink = &fnlogger{}

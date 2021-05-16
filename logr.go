@@ -178,6 +178,7 @@ func New(sink LogSink) Logger {
 	if withCallDepth, ok := sink.(CallDepthLogSink); ok {
 		logger.withCallDepth = withCallDepth
 	}
+	sink.Init(runtimeInfo)
 	return logger
 }
 
@@ -319,9 +320,28 @@ func NewContext(ctx context.Context, logger Logger) context.Context {
 	return context.WithValue(ctx, contextKey{}, logger)
 }
 
+// RuntimeInfo holds information that the logr "core" library knows which
+// LogSinks might want to know.
+type RuntimeInfo struct {
+	// CallDepth is the number of call frames the logr library adds between the
+	// end-user and the LogSink.  LogSink implementations which choose to print
+	// the original logging site (e.g. file & line) should climb this many
+	// additional frames to find it.
+	CallDepth int
+}
+
+// runtimeInfo is a static global.  It must not be changed at run time.
+var runtimeInfo = RuntimeInfo{
+	CallDepth: 1,
+}
+
 // LogSink represents a logging implementation.  End-users will generally not
 // interact with this type.
 type LogSink interface {
+	// Init receives optional information about the logr library for LogSink
+	// implementations that need it.
+	Init(info RuntimeInfo)
+
 	// Enabled tests whether this LogSink is enabled at the specified V-level.
 	// For example, commandline flags might be used to set the logging
 	// verbosity and disable some info logs.
