@@ -17,7 +17,8 @@ limitations under the License.
 package logr
 
 // Discard returns a Logger that discards all messages logged to it.  It can be
-// used whenever the caller is not interested in the logs.
+// used whenever the caller is not interested in the logs.  Logger instances
+// produced by this function always compare as equal.
 func Discard() Logger {
 	return Logger{
 		level: 0,

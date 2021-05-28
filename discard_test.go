@@ -18,6 +18,7 @@ package logr
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -31,6 +32,18 @@ func TestDiscard(t *testing.T) {
 	l.Info("Hello world", "x", 1, "y", 2)
 	l.V(1).Error(errors.New("foo"), "a", 123)
 	if l.Enabled() {
-		t.Error("discard logger must always say it is disabled")
+		t.Error("discardLogger must always say it is disabled")
+	}
+}
+
+func TestComparable(t *testing.T) {
+	a := Discard()
+	if !reflect.TypeOf(a).Comparable() {
+		t.Fatal("discardLogger must be comparable")
+	}
+
+	b := Discard()
+	if a != b {
+		t.Fatal("any two discardLoggers must be equal")
 	}
 }
