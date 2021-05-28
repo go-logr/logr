@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The logr Authors.
+Copyright 2021 The logr Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,11 +16,15 @@ limitations under the License.
 
 package testing
 
-import "github.com/go-logr/logr"
+import (
+	"fmt"
+	"testing"
+)
 
-// NullLogger is a logr.Logger that does nothing.
-//
-// Deprecated: NullLogger is idenitcal to logr.DiscardLogger.  It is retained
-// for backwards compatibility, but new users should use logr.DiscardLogger
-// instead.
-type NullLogger = logr.DiscardLogger
+func TestTestLogger(t *testing.T) {
+	logger := NewTestLogger(t)
+	logger.Info("info")
+	logger.V(0).Info("V(0).info")
+	logger.V(1).Info("v(1).info")
+	logger.Error(fmt.Errorf("error"), "error")
+}

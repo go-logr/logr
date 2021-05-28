@@ -24,18 +24,24 @@ import (
 	"github.com/go-logr/logr"
 )
 
-// TabLogger is a sample logr.Logger that logs to stderr.
-// It's terribly inefficient, and is *only* a basic example.
-type TabLogger struct {
+// tabLogSink is a sample logr.LogSink that logs to stderr.
+// It's terribly inefficient, and is only a basic example.
+type tabLogSink struct {
 	name      string
 	keyValues map[string]interface{}
-
-	writer *tabwriter.Writer
+	writer    *tabwriter.Writer
 }
 
-var _ logr.Logger = &TabLogger{}
+var _ logr.LogSink = tabLogSink{}
 
-func (l *TabLogger) Info(msg string, kvs ...interface{}) {
+func (_ tabLogSink) Init(info logr.RuntimeInfo) {
+}
+
+func (_ tabLogSink) Enabled(level int) bool {
+	return true
+}
+
+func (l tabLogSink) Info(level int, msg string, kvs ...interface{}) {
 	fmt.Fprintf(l.writer, "%s\t%s\t", l.name, msg)
 	for k, v := range l.keyValues {
 		fmt.Fprintf(l.writer, "%s: %+v  ", k, v)
@@ -47,28 +53,20 @@ func (l *TabLogger) Info(msg string, kvs ...interface{}) {
 	l.writer.Flush()
 }
 
-func (_ *TabLogger) Enabled() bool {
-	return true
-}
-
-func (l *TabLogger) Error(err error, msg string, kvs ...interface{}) {
+func (l tabLogSink) Error(err error, msg string, kvs ...interface{}) {
 	kvs = append(kvs, "error", err)
-	l.Info(msg, kvs...)
+	l.Info(0, msg, kvs...)
 }
 
-func (l *TabLogger) V(_ int) logr.Logger {
-	return l
-}
-
-func (l *TabLogger) WithName(name string) logr.Logger {
-	return &TabLogger{
+func (l tabLogSink) WithName(name string) logr.LogSink {
+	return tabLogSink{
 		name:      l.name + "." + name,
 		keyValues: l.keyValues,
 		writer:    l.writer,
 	}
 }
 
-func (l *TabLogger) WithValues(kvs ...interface{}) logr.Logger {
+func (l tabLogSink) WithValues(kvs ...interface{}) logr.LogSink {
 	newMap := make(map[string]interface{}, len(l.keyValues)+len(kvs)/2)
 	for k, v := range l.keyValues {
 		newMap[k] = v
@@ -76,7 +74,7 @@ func (l *TabLogger) WithValues(kvs ...interface{}) logr.Logger {
 	for i := 0; i < len(kvs); i += 2 {
 		newMap[kvs[i].(string)] = kvs[i+1]
 	}
-	return &TabLogger{
+	return tabLogSink{
 		name:      l.name,
 		keyValues: newMap,
 		writer:    l.writer,
@@ -84,7 +82,8 @@ func (l *TabLogger) WithValues(kvs ...interface{}) logr.Logger {
 }
 
 func NewTabLogger() logr.Logger {
-	return &TabLogger{
+	sink := tabLogSink{
 		writer: tabwriter.NewWriter(os.Stderr, 40, 8, 2, '\t', 0),
 	}
+	return logr.New(sink)
 }

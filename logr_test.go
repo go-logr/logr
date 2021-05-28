@@ -21,91 +21,91 @@ import (
 	"testing"
 )
 
-// testLogger is a Logger just for testing that does nothing.
-type testLogger struct{}
+// testLogSink is a Logger just for testing that does nothing.
+type testLogSink struct{}
 
-func (l *testLogger) Enabled() bool {
+func (l *testLogSink) Init(RuntimeInfo) {
+}
+
+func (l *testLogSink) Enabled(int) bool {
 	return false
 }
 
-func (l *testLogger) Info(msg string, keysAndValues ...interface{}) {
+func (l *testLogSink) Info(level int, msg string, keysAndValues ...interface{}) {
 }
 
-func (l *testLogger) Error(err error, msg string, keysAndValues ...interface{}) {
+func (l *testLogSink) Error(err error, msg string, keysAndValues ...interface{}) {
 }
 
-func (l *testLogger) V(level int) Logger {
+func (l *testLogSink) WithValues(keysAndValues ...interface{}) LogSink {
 	return l
 }
 
-func (l *testLogger) WithValues(keysAndValues ...interface{}) Logger {
-	return l
-}
-
-func (l *testLogger) WithName(name string) Logger {
+func (l *testLogSink) WithName(name string) LogSink {
 	return l
 }
 
 // Verify that it actually implements the interface
-var _ Logger = &testLogger{}
+var _ LogSink = &testLogSink{}
 
 func TestContext(t *testing.T) {
 	ctx := context.TODO()
 
-	if out := FromContext(ctx); out != nil {
-		t.Errorf("expected nil logger, got %#v", out)
+	if out, err := FromContext(ctx); err == nil {
+		t.Errorf("expected error, got %#v", out)
 	}
-	if out := FromContextOrDiscard(ctx); out == nil {
-		t.Errorf("expected non-nil logger")
-	} else if _, ok := out.(DiscardLogger); !ok {
-		t.Errorf("expected a DiscardLogger, got %#v", out)
+	out := FromContextOrDiscard(ctx)
+	if _, ok := out.sink.(discardLogger); !ok {
+		t.Errorf("expected a discardLogger, got %#v", out)
 	}
 
-	logger := &testLogger{}
+	sink := &testLogSink{}
+	logger := New(sink)
 	lctx := NewContext(ctx, logger)
-	if out := FromContext(lctx); out == nil {
-		t.Errorf("expected non-nil logger")
-	} else if out.(*testLogger) != logger {
-		t.Errorf("expected output to be the same as input: got in=%p, out=%p", logger, out)
+	if out, err := FromContext(lctx); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if p := out.sink.(*testLogSink); p != sink {
+		t.Errorf("expected output to be the same as input: got in=%p, out=%p", sink, p)
 	}
-	if out := FromContextOrDiscard(lctx); out == nil {
-		t.Errorf("expected non-nil logger")
-	} else if out.(*testLogger) != logger {
-		t.Errorf("expected output to be the same as input: got in=%p, out=%p", logger, out)
+	out = FromContextOrDiscard(lctx)
+	if p := out.sink.(*testLogSink); p != sink {
+		t.Errorf("expected output to be the same as input: got in=%p, out=%p", sink, p)
 	}
 }
 
-// testCallDepthLogger is a Logger just for testing that does nothing.
-type testCallDepthLogger struct {
-	*testLogger
+// testCallDepthLogSink is a Logger just for testing that does nothing.
+type testCallDepthLogSink struct {
+	*testLogSink
 	depth int
 }
 
-func (l *testCallDepthLogger) WithCallDepth(depth int) Logger {
-	return &testCallDepthLogger{l.testLogger, l.depth + depth}
+func (l *testCallDepthLogSink) WithCallDepth(depth int) LogSink {
+	return &testCallDepthLogSink{l.testLogSink, l.depth + depth}
 }
 
 // Verify that it actually implements the interface
-var _ CallDepthLogger = &testCallDepthLogger{}
+var _ CallDepthLogSink = &testCallDepthLogSink{}
 
 func TestWithCallDepth(t *testing.T) {
 	// Test an impl that does not support it.
 	t.Run("not supported", func(t *testing.T) {
-		in := &testLogger{}
-		out := WithCallDepth(in, 42)
-		if out.(*testLogger) != in {
-			t.Errorf("expected output to be the same as input: got in=%p, out=%p", in, out)
+		in := &testLogSink{}
+		l := New(in)
+		out := l.WithCallDepth(42)
+		if p := out.sink.(*testLogSink); p != in {
+			t.Errorf("expected output to be the same as input: got in=%p, out=%p", in, p)
 		}
 	})
 
 	// Test an impl that does support it.
 	t.Run("supported", func(t *testing.T) {
-		in := &testCallDepthLogger{&testLogger{}, 0}
-		out := WithCallDepth(in, 42)
-		if out.(*testCallDepthLogger) == in {
+		in := &testCallDepthLogSink{&testLogSink{}, 0}
+		l := New(in)
+		out := l.WithCallDepth(42)
+		if out.sink.(*testCallDepthLogSink) == in {
 			t.Errorf("expected output to be different than input: got in=out=%p", in)
 		}
-		if cdl := out.(*testCallDepthLogger); cdl.depth != 42 {
+		if cdl := out.sink.(*testCallDepthLogSink); cdl.depth != 42 {
 			t.Errorf("expected depth=42, got %d", cdl.depth)
 		}
 	})
