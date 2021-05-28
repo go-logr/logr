@@ -18,35 +18,325 @@ package logr
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"testing"
 )
 
-// testLogSink is a Logger just for testing that does nothing.
-type testLogSink struct{}
-
-func (l *testLogSink) Init(RuntimeInfo) {
+// testLogSink is a Logger just for testing that calls optional hooks on each method.
+type testLogSink struct {
+	fnInit       func(ri RuntimeInfo)
+	fnEnabled    func(lvl int) bool
+	fnInfo       func(lvl int, msg string, kv ...interface{})
+	fnError      func(err error, msg string, kv ...interface{})
+	fnWithValues func(kv ...interface{})
+	fnWithName   func(name string)
 }
 
-func (l *testLogSink) Enabled(int) bool {
+var _ LogSink = &testLogSink{}
+
+func (l *testLogSink) Init(ri RuntimeInfo) {
+	if l.fnInit != nil {
+		l.fnInit(ri)
+	}
+}
+
+func (l *testLogSink) Enabled(lvl int) bool {
+	if l.fnEnabled != nil {
+		return l.fnEnabled(lvl)
+	}
 	return false
 }
 
-func (l *testLogSink) Info(level int, msg string, keysAndValues ...interface{}) {
+func (l *testLogSink) Info(lvl int, msg string, kv ...interface{}) {
+	if l.fnInfo != nil {
+		l.fnInfo(lvl, msg, kv...)
+	}
 }
 
-func (l *testLogSink) Error(err error, msg string, keysAndValues ...interface{}) {
+func (l *testLogSink) Error(err error, msg string, kv ...interface{}) {
+	if l.fnError != nil {
+		l.fnError(err, msg, kv...)
+	}
 }
 
-func (l *testLogSink) WithValues(keysAndValues ...interface{}) LogSink {
-	return l
+func (l *testLogSink) WithValues(kv ...interface{}) LogSink {
+	if l.fnWithValues != nil {
+		l.fnWithValues(kv...)
+	}
+	out := *l
+	return &out
 }
 
 func (l *testLogSink) WithName(name string) LogSink {
-	return l
+	if l.fnWithName != nil {
+		l.fnWithName(name)
+	}
+	out := *l
+	return &out
 }
 
-// Verify that it actually implements the interface
-var _ LogSink = &testLogSink{}
+type testCallDepthLogSink struct {
+	testLogSink
+	fnWithCallDepth func(depth int)
+}
+
+var _ CallDepthLogSink = &testCallDepthLogSink{}
+
+func (l *testCallDepthLogSink) WithCallDepth(depth int) LogSink {
+	if l.fnWithCallDepth != nil {
+		l.fnWithCallDepth(depth)
+	}
+	out := *l
+	return &out
+}
+
+func TestNew(t *testing.T) {
+	calledInit := 0
+
+	sink := &testLogSink{}
+	sink.fnInit = func(ri RuntimeInfo) {
+		if ri.CallDepth != 1 {
+			t.Errorf("expected runtimeInfo.CallDepth = 1, got %d", ri.CallDepth)
+		}
+		calledInit++
+	}
+	logger := New(sink)
+
+	if logger.sink == nil {
+		t.Errorf("expected sink to be set, got %v", logger.sink)
+	}
+	if calledInit != 1 {
+		t.Errorf("expected sink.Init() to be called once, got %d", calledInit)
+	}
+	if logger.withCallDepth != nil {
+		t.Errorf("expected withCallDepth to be nil, got %v", logger.withCallDepth)
+	}
+}
+
+func TestNewCachesCallDepthInterface(t *testing.T) {
+	sink := &testCallDepthLogSink{}
+	logger := New(sink)
+
+	if logger.withCallDepth == nil {
+		t.Errorf("expected withCallDepth to be set")
+	}
+}
+
+func TestEnabled(t *testing.T) {
+	calledEnabled := 0
+
+	sink := &testLogSink{}
+	sink.fnEnabled = func(lvl int) bool {
+		calledEnabled++
+		return true
+	}
+	logger := New(sink)
+
+	if en := logger.Enabled(); en != true {
+		t.Errorf("expected true")
+	}
+	if calledEnabled != 1 {
+		t.Errorf("expected sink.Enabled() to be called once, got %d", calledEnabled)
+	}
+}
+
+func TestError(t *testing.T) {
+	calledError := 0
+	errInput := fmt.Errorf("error")
+	msgInput := "msg"
+	kvInput := []interface{}{0, 1, 2}
+
+	sink := &testLogSink{}
+	sink.fnError = func(err error, msg string, kv ...interface{}) {
+		calledError++
+		if err != errInput {
+			t.Errorf("unexpected err input, got %v", err)
+		}
+		if msg != msgInput {
+			t.Errorf("unexpected msg input, got %q", msg)
+		}
+		if !reflect.DeepEqual(kv, kvInput) {
+			t.Errorf("unexpected kv input, got %v", kv)
+		}
+	}
+	logger := New(sink)
+
+	logger.Error(errInput, msgInput, kvInput...)
+	if calledError != 1 {
+		t.Errorf("expected sink.Error() to be called once, got %d", calledError)
+	}
+}
+
+func TestV(t *testing.T) {
+	sink := &testLogSink{}
+	logger := New(sink)
+
+	if l := logger.V(0); l.level != 0 {
+		t.Errorf("expected level 0, got %d", l.level)
+	}
+	if l := logger.V(93); l.level != 93 {
+		t.Errorf("expected level 93, got %d", l.level)
+	}
+	if l := logger.V(70).V(6); l.level != 76 {
+		t.Errorf("expected level 76, got %d", l.level)
+	}
+	if l := logger.V(-1); l.level != 0 {
+		t.Errorf("expected level 0, got %d", l.level)
+	}
+	if l := logger.V(1).V(-1); l.level != 1 {
+		t.Errorf("expected level 1, got %d", l.level)
+	}
+}
+
+func TestInfo(t *testing.T) {
+	calledEnabled := 0
+	calledInfo := 0
+	lvlInput := 0
+	msgInput := "msg"
+	kvInput := []interface{}{0, 1, 2}
+
+	sink := &testLogSink{}
+	sink.fnEnabled = func(lvl int) bool {
+		calledEnabled++
+		return lvl < 100
+	}
+	sink.fnInfo = func(lvl int, msg string, kv ...interface{}) {
+		calledInfo++
+		if lvl != lvlInput {
+			t.Errorf("unexpected lvl input, got %v", lvl)
+		}
+		if msg != msgInput {
+			t.Errorf("unexpected msg input, got %q", msg)
+		}
+		if !reflect.DeepEqual(kv, kvInput) {
+			t.Errorf("unexpected kv input, got %v", kv)
+		}
+	}
+	logger := New(sink)
+
+	calledEnabled = 0
+	calledInfo = 0
+	lvlInput = 0
+	logger.Info(msgInput, kvInput...)
+	if calledEnabled != 1 {
+		t.Errorf("expected sink.Enabled() to be called once, got %d", calledEnabled)
+	}
+	if calledInfo != 1 {
+		t.Errorf("expected sink.Info() to be called once, got %d", calledInfo)
+	}
+
+	calledEnabled = 0
+	calledInfo = 0
+	lvlInput = 0
+	logger.V(0).Info(msgInput, kvInput...)
+	if calledEnabled != 1 {
+		t.Errorf("expected sink.Enabled() to be called once, got %d", calledEnabled)
+	}
+	if calledInfo != 1 {
+		t.Errorf("expected sink.Info() to be called once, got %d", calledInfo)
+	}
+
+	calledEnabled = 0
+	calledInfo = 0
+	lvlInput = 93
+	logger.V(93).Info(msgInput, kvInput...)
+	if calledEnabled != 1 {
+		t.Errorf("expected sink.Enabled() to be called once, got %d", calledEnabled)
+	}
+	if calledInfo != 1 {
+		t.Errorf("expected sink.Info() to be called once, got %d", calledInfo)
+	}
+
+	calledEnabled = 0
+	calledInfo = 0
+	lvlInput = 100
+	logger.V(100).Info(msgInput, kvInput...)
+	if calledEnabled != 1 {
+		t.Errorf("expected sink.Enabled() to be called once, got %d", calledEnabled)
+	}
+	if calledInfo != 0 {
+		t.Errorf("expected sink.Info() to not be called, got %d", calledInfo)
+	}
+}
+
+func TestWithValues(t *testing.T) {
+	calledWithValues := 0
+	kvInput := []interface{}{"zero", 0, "one", 1, "two", 2}
+
+	sink := &testLogSink{}
+	sink.fnWithValues = func(kv ...interface{}) {
+		calledWithValues++
+		if !reflect.DeepEqual(kv, kvInput) {
+			t.Errorf("unexpected kv input, got %v", kv)
+		}
+	}
+	logger := New(sink)
+
+	out := logger.WithValues(kvInput...)
+	if calledWithValues != 1 {
+		t.Errorf("expected sink.WithValues() to be called once, got %d", calledWithValues)
+	}
+	if p := out.sink.(*testLogSink); p == sink {
+		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
+	}
+}
+
+func TestWithName(t *testing.T) {
+	calledWithName := 0
+	nameInput := "name"
+
+	sink := &testLogSink{}
+	sink.fnWithName = func(name string) {
+		calledWithName++
+		if name != nameInput {
+			t.Errorf("unexpected name input, got %q", name)
+		}
+	}
+	logger := New(sink)
+
+	out := logger.WithName(nameInput)
+	if calledWithName != 1 {
+		t.Errorf("expected sink.WithName() to be called once, got %d", calledWithName)
+	}
+	if p := out.sink.(*testLogSink); p == sink {
+		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
+	}
+}
+
+func TestWithCallDepthNotImplemented(t *testing.T) {
+	depthInput := 7
+
+	sink := &testLogSink{}
+	logger := New(sink)
+
+	out := logger.WithCallDepth(depthInput)
+	if p := out.sink.(*testLogSink); p != sink {
+		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
+	}
+}
+
+func TestWithCallDepthImplemented(t *testing.T) {
+	calledWithCallDepth := 0
+	depthInput := 7
+
+	sink := &testCallDepthLogSink{}
+	sink.fnWithCallDepth = func(depth int) {
+		calledWithCallDepth++
+		if depth != depthInput {
+			t.Errorf("unexpected depth input, got %d", depth)
+		}
+	}
+	logger := New(sink)
+
+	out := logger.WithCallDepth(depthInput)
+	if calledWithCallDepth != 1 {
+		t.Errorf("expected sink.WithCallDepth() to be called once, got %d", calledWithCallDepth)
+	}
+	if p := out.sink.(*testCallDepthLogSink); p == sink {
+		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
+	}
+}
 
 func TestContext(t *testing.T) {
 	ctx := context.TODO()
@@ -68,48 +358,10 @@ func TestContext(t *testing.T) {
 	if out, err := FromContext(lctx); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	} else if p := out.sink.(*testLogSink); p != sink {
-		t.Errorf("expected output to be the same as input: got in=%p, out=%p", sink, p)
+		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
 	}
 	out = FromContextOrDiscard(lctx)
 	if p := out.sink.(*testLogSink); p != sink {
-		t.Errorf("expected output to be the same as input: got in=%p, out=%p", sink, p)
+		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
 	}
-}
-
-// testCallDepthLogSink is a Logger just for testing that does nothing.
-type testCallDepthLogSink struct {
-	*testLogSink
-	depth int
-}
-
-func (l *testCallDepthLogSink) WithCallDepth(depth int) LogSink {
-	return &testCallDepthLogSink{l.testLogSink, l.depth + depth}
-}
-
-// Verify that it actually implements the interface
-var _ CallDepthLogSink = &testCallDepthLogSink{}
-
-func TestWithCallDepth(t *testing.T) {
-	// Test an impl that does not support it.
-	t.Run("not supported", func(t *testing.T) {
-		in := &testLogSink{}
-		l := New(in)
-		out := l.WithCallDepth(42)
-		if p := out.sink.(*testLogSink); p != in {
-			t.Errorf("expected output to be the same as input: got in=%p, out=%p", in, p)
-		}
-	})
-
-	// Test an impl that does support it.
-	t.Run("supported", func(t *testing.T) {
-		in := &testCallDepthLogSink{&testLogSink{}, 0}
-		l := New(in)
-		out := l.WithCallDepth(42)
-		if out.sink.(*testCallDepthLogSink) == in {
-			t.Errorf("expected output to be different than input: got in=out=%p", in)
-		}
-		if cdl := out.sink.(*testCallDepthLogSink); cdl.depth != 42 {
-			t.Errorf("expected depth=42, got %d", cdl.depth)
-		}
-	})
 }
