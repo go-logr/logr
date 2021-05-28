@@ -24,7 +24,7 @@ import (
 
 func TestDiscard(t *testing.T) {
 	l := Discard()
-	if _, ok := l.sink.(discardLogger); !ok {
+	if _, ok := l.sink.(discardLogSink); !ok {
 		t.Error("did not return the expected underlying type")
 	}
 	// Verify that none of the methods panic, there is not more we can test.
@@ -32,18 +32,18 @@ func TestDiscard(t *testing.T) {
 	l.Info("Hello world", "x", 1, "y", 2)
 	l.V(1).Error(errors.New("foo"), "a", 123)
 	if l.Enabled() {
-		t.Error("discardLogger must always say it is disabled")
+		t.Error("discardLogSink must always say it is disabled")
 	}
 }
 
 func TestComparable(t *testing.T) {
 	a := Discard()
 	if !reflect.TypeOf(a).Comparable() {
-		t.Fatal("discardLogger must be comparable")
+		t.Fatal("discardLogSink must be comparable")
 	}
 
 	b := Discard()
 	if a != b {
-		t.Fatal("any two discardLoggers must be equal")
+		t.Fatal("any two discardLogSink must be equal")
 	}
 }

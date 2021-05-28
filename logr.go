@@ -16,8 +16,6 @@ limitations under the License.
 
 // This design derives from Dave Cheney's blog:
 //     http://dave.cheney.net/2015/11/05/lets-talk-about-logging
-//
-// This is a BETA grade API.
 
 // Package logr defines a general-purpose logging API and abstract interfaces
 // to back that API.  Packages in the Go ecosystem can depend on this package,
@@ -220,9 +218,7 @@ func (l Logger) Info(msg string, keysAndValues ...interface{}) {
 // while the err argument should be used to attach the actual error that
 // triggered this log line, if present.
 func (l Logger) Error(err error, msg string, keysAndValues ...interface{}) {
-	if l.Enabled() {
-		l.sink.Error(err, msg, keysAndValues...)
-	}
+	l.sink.Error(err, msg, keysAndValues...)
 }
 
 // V returns a new Logger instance for a specific verbosity level, relative to

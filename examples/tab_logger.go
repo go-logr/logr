@@ -81,6 +81,8 @@ func (l tabLogSink) WithValues(kvs ...interface{}) logr.LogSink {
 	}
 }
 
+// NewTabLogger is the main entry-point to this implementation.  App developers
+// call this somewhere near main() and thenceforth only deal with logr.Logger.
 func NewTabLogger() logr.Logger {
 	sink := tabLogSink{
 		writer: tabwriter.NewWriter(os.Stderr, 40, 8, 2, '\t', 0),
