@@ -16,8 +16,6 @@ limitations under the License.
 
 // This design derives from Dave Cheney's blog:
 //     http://dave.cheney.net/2015/11/05/lets-talk-about-logging
-//
-// This is a BETA grade API.
 
 // Package logr defines a general-purpose logging API and abstract interfaces
 // to back that API.  Packages in the Go ecosystem can depend on this package,

@@ -1,23 +1,90 @@
-# A more minimal logging API for Go
+# A minimal logging API for Go
+
+logr offers an(other) opinion on how Go programs and libraries can do logging
+without becoming coupled to a particular logging implementation,  This is not
+an implementation of logging - it is an API.  In fact it is two APIs with twop
+different sets of users.
+
+The `Logger` type is intended for application and library authors.  It provides
+a relatively small API which can be used everywhere you want to emit logs.  It
+defers the actual act of writing logs (to files, to stdout, or whatever) to the
+`LogSink` interface.
+
+The `LogSink` interface is intended for logging library implementors.  It is a
+pure interface which can be implemented by to provide the actual logging
+functionality.
+
+This decoupling allows application and library developers to write code in
+terms of `logr.Logger` (which has very low dependency fan-out) while the
+implementation of logging is managed "up stack" (e.g. in or near `main()`).
+Application developers can then switch out implementations as necessary.
+
+Many people assert that libraries should not be logging, and as such efforts
+like this are pointless.  Those people are welcome to convince the authors of
+the tens-of-thousands of libraries that *DO* write logs that they are all
+wrong.  In the meantime, logr takes a more practical approach.
+
+## Typical usage
+
+Somewhere, early in an application's life, it will make a decision about which
+logging library (implementation) it actually wants to use.  Something like:
+
+```
+    func main() {
+        // ... other setup code ...
+
+        // Create the "root" logger.  We have chosen the "logimpl" implementation,
+        // which takes some initial parameters and returns a logr.Logger.
+        logger := logimpl.New(param1, param2)
+
+        // ... other setup code ...
+```
+
+Most apps will call into other libraries, create stuctures to govern the flow,
+etc.  The `logr.Logger` object can be passed to these other libraries, stored
+in structs, or even used as a package-global variable, if needed.  For example:
+
+```
+        app := createTheAppObject(logger)
+        app.Run()
+```
+
+Outside of this early setup, no other packages need to know about the choice of
+implementation.  They write logs in terms of the `logr.Logger` that they
+received:
+
+```
+    type appObject struct {
+        // ... other fields ...
+        logger logr.Logr
+        // ... other fields ...
+    }
+
+    func (app *appObject) Run() {
+        app.logger.Info("starting up", "timestamp", time.Now())
+
+        // ... app code ...
+```
+
+## Background
+
+If the Go standard library had defined an interface for logging, this project
+probably would not be needed.  Alas, here we are.
+
+### Inspiration
 
 Before you consider this package, please read [this blog post by the
-inimitable Dave Cheney][warning-makes-no-sense].  I really appreciate what
-he has to say, and it largely aligns with my own experiences.  Too many
-choices of levels means inconsistent logs.
+inimitable Dave Cheney][warning-makes-no-sense].  We really appreciate what
+he has to say, and it largely aligns with our own experiences.
 
-This package offers a purely abstract interface, based on these ideas but with
-a few twists.  Code can depend on just this interface and have the actual
-logging implementation be injected from callers.  Ideally only `main()` knows
-what logging implementation is being used.
-
-# Differences from Dave's ideas
+### Differences from Dave's ideas
 
 The main differences are:
 
 1) Dave basically proposes doing away with the notion of a logging API in favor
-of `fmt.Printf()`.  I disagree, especially when you consider things like output
-locations, timestamps, file and line decorations, and structured logging.  I
-restrict the API to just 2 types of logs: info and error.
+of `fmt.Printf()`.  We disagree, especially when you consider things like output
+locations, timestamps, file and line decorations, and structured logging.  This
+package restricts the logging API to just 2 types of logs: info and error.
 
 Info logs are things you want to tell the user which are not errors.  Error
 logs are, well, errors.  If your code receives an `error` from a subordinate
@@ -31,7 +98,7 @@ may feel very similar, but the primary difference is the lack of semantics.
 Because verbosity is a numerical value, it's safe to assume that an app running
 with higher verbosity means more (and less important) logs will be generated.
 
-This is a BETA grade API.
+## Implementations (non-exhaustive)
 
 There are implementations for the following logging libraries:
 
@@ -44,11 +111,11 @@ There are implementations for the following logging libraries:
 - **github.com/wojas/genericr**: [genericr](https://github.com/wojas/genericr) (makes it easy to implement your own backend)
 - **logfmt** (Heroku style [logging](https://www.brandur.org/logfmt)): [logfmtr](https://github.com/iand/logfmtr)
 
-# FAQ
+## FAQ
 
-## Conceptual
+### Conceptual
 
-## Why structured logging?
+#### Why structured logging?
 
 - **Structured logs are more easily queriable**: Since you've got
   key-value pairs, it's much easier to query your structured logs for
@@ -73,20 +140,20 @@ There are implementations for the following logging libraries:
   objects).  Structured logs allow you to preserve that structure when
   outputting.
 
-## Why V-levels?
+#### Why V-levels?
 
 **V-levels give operators an easy way to control the chattiness of log
 operations**.  V-levels provide a way for a given package to distinguish
 the relative importance or verbosity of a given log message.  Then, if
 a particular logger or package is logging too many messages, the user
-of the package can simply change the v-levels for that library. 
+of the package can simply change the v-levels for that library.
 
-## Why not more named levels, like Warning?
+#### Why not named levels, like Info/Warning/Error?
 
 Read [Dave Cheney's post][warning-makes-no-sense].  Then read [Differences
 from Dave's ideas](#differences-from-daves-ideas).
 
-## Why not allow format strings, too?
+#### Why not allow format strings, too?
 
 **Format strings negate many of the benefits of structured logs**:
 
@@ -96,7 +163,7 @@ from Dave's ideas](#differences-from-daves-ideas).
 - They don't store structured data well, since contents are flattened into
   a string
 
-- They're not cross-referencable
+- They're not cross-referenceable
 
 - They don't compress easily, since the message is not constant
 
@@ -104,9 +171,9 @@ from Dave's ideas](#differences-from-daves-ideas).
 keys, at which point you've gotten key-value logging with meaningless
 keys)
 
-## Practical
+### Practical
 
-## Why key-value pairs, and not a map?
+#### Why key-value pairs, and not a map?
 
 Key-value pairs are *much* easier to optimize, especially around
 allocations.  Zap (a structured logger that inspired logr's interface) has
@@ -117,16 +184,16 @@ While the interface ends up being a little less obvious, you get
 potentially better performance, plus avoid making users type
 `map[string]string{}` every time they want to log.
 
-## What if my V-levels differ between libraries?
+#### What if my V-levels differ between libraries?
 
 That's fine.  Control your V-levels on a per-logger basis, and use the
-`WithName` function to pass different loggers to different libraries.
+`WithName` method to pass different loggers to different libraries.
 
 Generally, you should take care to ensure that you have relatively
 consistent V-levels within a given logger, however, as this makes deciding
 on what verbosity of logs to request easier.
 
-## But I *really* want to use a format string!
+#### But I really want to use a format string!
 
 That's not actually a question.  Assuming your question is "how do
 I convert my mental model of logging with format strings to logging with
@@ -150,13 +217,13 @@ Kubernetes codebase):
   response when requesting url", "attempt", retries, "after
   seconds", seconds, "url", url)`
 
-If you *really* must use a format string, place it as a key value, and
-call `fmt.Sprintf` yourself -- for instance, `log.Printf("unable to
+If you *really* must use a format string, use it in a key's value, and
+call `fmt.Sprintf` yourself.  For instance: `log.Printf("unable to
 reflect over type %T")` becomes `logger.Info("unable to reflect over
 type", "type", fmt.Sprintf("%T"))`.  In general though, the cases where
 this is necessary should be few and far between.
 
-## How do I choose my V-levels?
+#### How do I choose my V-levels?
 
 This is basically the only hard constraint: increase V-levels to denote
 more verbose or more debug-y logs.
@@ -169,7 +236,7 @@ Then gradually choose levels in between as you need them, working your way
 down from 10 (for debug and trace style logs) and up from 1 (for chattier
 info-type logs).
 
-## How do I choose my keys?
+#### How do I choose my keys?
 
 - make your keys human-readable
 - constant keys are generally a good idea
@@ -180,19 +247,19 @@ While key names are mostly unrestricted (and spaces are acceptable),
 it's generally a good idea to stick to printable ascii characters, or at
 least match the general character set of your log lines.
 
-## Why should keys be constant values?
+#### Why should keys be constant values?
 
 The point of structured logging is to make later log processing easier.  Your
 keys are, effectively, the schema of each log message.  If you use different
 keys across instances of the same log-line, you will make your structured logs
 much harder to use.  `Sprintf()` is for values, not for keys!
 
-## Why is this not a pure interface?
+#### Why is this not a pure interface?
 
 The Logger type is implemented as a struct in order to allow the Go compiler to
-optimize things like high-V Info logs that are not triggered.  Not all of these
-implementations are implemented yet, but this structure was suggested as a way to
-ensure they *can* be implemented.  All of the real work is behind the LogSink
-interface.
+optimize things like high-V `Info` logs that are not triggered.  Not all of
+these implementations are implemented yet, but this structure was suggested as
+a way to ensure they *can* be implemented.  All of the real work is behind the
+`LogSink` interface.
 
 [warning-makes-no-sense]: http://dave.cheney.net/2015/11/05/lets-talk-about-logging
