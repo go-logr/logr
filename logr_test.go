@@ -58,8 +58,8 @@ func TestContext(t *testing.T) {
 	}
 
 	out := FromContextOrDiscard(ctx)
-	if _, ok := out.sink.(discardLogger); !ok {
-		t.Errorf("expected a discardLogger, got %#v", out)
+	if _, ok := out.sink.(discardLogSink); !ok {
+		t.Errorf("expected a discardLogSink, got %#v", out)
 	}
 
 	sink := &testLogSink{}
