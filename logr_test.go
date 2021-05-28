@@ -53,7 +53,10 @@ func TestContext(t *testing.T) {
 
 	if out, err := FromContext(ctx); err == nil {
 		t.Errorf("expected error, got %#v", out)
+	} else if _, ok := err.(notFoundError); !ok {
+		t.Errorf("expected a notFoundError, got %#v", err)
 	}
+
 	out := FromContextOrDiscard(ctx)
 	if _, ok := out.sink.(discardLogger); !ok {
 		t.Errorf("expected a discardLogger, got %#v", out)
