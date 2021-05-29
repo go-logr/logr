@@ -328,7 +328,7 @@ func (l *fnlogger) WithName(name string) logr.LogSink {
 		l.prefix = l2.prefix + "/"
 	}
 	l2.prefix += name
-	return l
+	return l2
 }
 
 func (l *fnlogger) WithValues(kvList ...interface{}) logr.LogSink {
