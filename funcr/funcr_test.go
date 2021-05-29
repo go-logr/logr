@@ -104,3 +104,25 @@ func TestPretty(t *testing.T) {
 		}
 	}
 }
+
+func TestWithName(t *testing.T) {
+	var called string
+	x := New(func(prefix, _ string) { called = prefix }, Options{})
+	y := x.WithName("y")
+	z := y.WithName("z")
+
+	x.Info("any")
+	if called != "" {
+		t.Errorf("expected no prefix, got %q", called)
+	}
+
+	y.Info("any")
+	if expected := "y"; called != expected {
+		t.Errorf("expected %q, got %q", expected, called)
+	}
+
+	z.Info("any")
+	if expected := "y/z"; called != expected {
+		t.Errorf("expected %q, got %q", expected, called)
+	}
+}

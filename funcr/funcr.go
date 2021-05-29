@@ -325,7 +325,7 @@ func (l *fnlogger) WithName(name string) logr.LogSink {
 	l2 := &fnlogger{}
 	*l2 = *l
 	if len(l2.prefix) > 0 {
-		l.prefix = l2.prefix + "/"
+		l2.prefix = l2.prefix + "/"
 	}
 	l2.prefix += name
 	return l2
