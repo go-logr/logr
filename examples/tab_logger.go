@@ -32,9 +32,11 @@ type tabLogSink struct {
 	writer    *tabwriter.Writer
 }
 
-var _ logr.LogSink = tabLogSink{}
+var _ logr.LogSink = &tabLogSink{}
 
-func (_ tabLogSink) Init(info logr.RuntimeInfo) {
+// Note that Init usually takes a pointer so it can modify the receiver to save
+// runtime info.
+func (_ *tabLogSink) Init(info logr.RuntimeInfo) {
 }
 
 func (_ tabLogSink) Enabled(level int) bool {
@@ -59,7 +61,7 @@ func (l tabLogSink) Error(err error, msg string, kvs ...interface{}) {
 }
 
 func (l tabLogSink) WithName(name string) logr.LogSink {
-	return tabLogSink{
+	return &tabLogSink{
 		name:      l.name + "." + name,
 		keyValues: l.keyValues,
 		writer:    l.writer,
@@ -74,7 +76,7 @@ func (l tabLogSink) WithValues(kvs ...interface{}) logr.LogSink {
 	for i := 0; i < len(kvs); i += 2 {
 		newMap[kvs[i].(string)] = kvs[i+1]
 	}
-	return tabLogSink{
+	return &tabLogSink{
 		name:      l.name,
 		keyValues: newMap,
 		writer:    l.writer,
@@ -84,7 +86,7 @@ func (l tabLogSink) WithValues(kvs ...interface{}) logr.LogSink {
 // NewTabLogger is the main entry-point to this implementation.  App developers
 // call this somewhere near main() and thenceforth only deal with logr.Logger.
 func NewTabLogger() logr.Logger {
-	sink := tabLogSink{
+	sink := &tabLogSink{
 		writer: tabwriter.NewWriter(os.Stderr, 40, 8, 2, '\t', 0),
 	}
 	return logr.New(sink)
