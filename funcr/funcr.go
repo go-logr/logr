@@ -33,7 +33,11 @@ import (
 
 // New returns a logr.Logger which is implemented by an arbitrary function.
 func New(fn func(prefix, args string), opts Options) logr.Logger {
-	fnl := &fnlogger{
+	return logr.New(newSink(fn, opts))
+}
+
+func newSink(fn func(prefix, args string), opts Options) logr.LogSink {
+	return &fnlogger{
 		prefix:    "",
 		values:    nil,
 		depth:     0,
@@ -41,7 +45,6 @@ func New(fn func(prefix, args string), opts Options) logr.Logger {
 		logCaller: opts.LogCaller,
 		verbosity: opts.Verbosity,
 	}
-	return logr.New(fnl)
 }
 
 // Options carries parameters which influence the way logs are generated.
