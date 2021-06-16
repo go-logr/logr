@@ -2,7 +2,7 @@
 
 logr offers an(other) opinion on how Go programs and libraries can do logging
 without becoming coupled to a particular logging implementation,  This is not
-an implementation of logging - it is an API.  In fact it is two APIs with twop
+an implementation of logging - it is an API.  In fact it is two APIs with two
 different sets of users.
 
 The `Logger` type is intended for application and library authors.  It provides
@@ -10,7 +10,7 @@ a relatively small API which can be used everywhere you want to emit logs.  It
 defers the actual act of writing logs (to files, to stdout, or whatever) to the
 `LogSink` interface.
 
-The `LogSink` interface is intended for logging library implementors.  It is a
+The `LogSink` interface is intended for logging library implementers.  It is a
 pure interface which can be implemented by to provide the actual logging
 functionality.
 
@@ -40,7 +40,7 @@ logging library (implementation) it actually wants to use.  Something like:
         // ... other setup code ...
 ```
 
-Most apps will call into other libraries, create stuctures to govern the flow,
+Most apps will call into other libraries, create structures to govern the flow,
 etc.  The `logr.Logger` object can be passed to these other libraries, stored
 in structs, or even used as a package-global variable, if needed.  For example:
 
@@ -117,13 +117,13 @@ There are implementations for the following logging libraries:
 
 #### Why structured logging?
 
-- **Structured logs are more easily queriable**: Since you've got
+- **Structured logs are more easily queryable**: Since you've got
   key-value pairs, it's much easier to query your structured logs for
   particular values by filtering on the contents of a particular key --
   think searching request logs for error codes, Kubernetes reconcilers for
   the name and namespace of the reconciled object, etc
 
-- **Structured logging makes it easier to have cross-referencable logs**:
+- **Structured logging makes it easier to have cross-referenceable logs**:
   Similarly to searchability, if you maintain conventions around your
   keys, it becomes easy to gather all log lines related to a particular
   concept.
