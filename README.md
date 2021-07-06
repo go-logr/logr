@@ -56,7 +56,7 @@ received:
 ```
     type appObject struct {
         // ... other fields ...
-        logger logr.Logr
+        logger logr.Logger
         // ... other fields ...
     }
 
