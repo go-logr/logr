@@ -173,9 +173,6 @@ func New(sink LogSink) Logger {
 	logger := Logger{
 		sink: sink,
 	}
-	if withCallDepth, ok := sink.(CallDepthLogSink); ok {
-		logger.withCallDepth = withCallDepth
-	}
 	sink.Init(runtimeInfo)
 	return logger
 }
@@ -185,9 +182,8 @@ func New(sink LogSink) Logger {
 // to a LogSink.  Implementations of LogSink should provide their own
 // constructors that return Logger, not LogSink.
 type Logger struct {
-	level         int
-	sink          LogSink
-	withCallDepth CallDepthLogSink
+	level int
+	sink  LogSink
 }
 
 // Enabled tests whether this Logger is enabled.  For example, commandline
@@ -262,10 +258,9 @@ func (l Logger) WithName(name string) Logger {
 // it will be called and the result returned.  If the implementation does not
 // support CallDepthLogSink, the original Logger will be returned.
 func (l Logger) WithCallDepth(depth int) Logger {
-	if l.withCallDepth == nil {
-		return l
+	if withCallDepth, ok := l.sink.(CallDepthLogSink); ok {
+		l.sink = withCallDepth.WithCallDepth(depth)
 	}
-	l.sink = l.withCallDepth.WithCallDepth(depth)
 	return l
 }
 
