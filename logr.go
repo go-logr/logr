@@ -209,10 +209,11 @@ func New(sink LogSink) Logger {
 // accessed concurrently.
 func (l *Logger) setSink(sink LogSink) {
 	l.sink = sink
-	// Always update the cached value to ensure that it matches
+	// Always update the cached values to ensure that they match
 	// the new sink, either with a valid implementation of the
 	// additional interface or nil.
 	l.withCallDepth, _ = sink.(CallDepthLogSink)
+	l.withHelper, _ = sink.(CallStackHelperLogSink)
 }
 
 // GetSink returns the stored sink.
@@ -238,8 +239,20 @@ func (l Logger) WithSink(sink LogSink) Logger {
 type Logger struct {
 	sink LogSink
 
-	level         int
+	level int
+
+	// withCallDepth is set by setSink if the log sink supports
+	// the CallDepthLogSink interface.
 	withCallDepth CallDepthLogSink
+
+	// withHelper is set by setSink if the log sink supports the
+	// CallStackHelperLogSink interface.
+	//
+	// We only need the function returned by
+	// withHelper.GetCallStackHelper(), but cannot store it here
+	// because that makes Logger non-comparable, which is
+	// something we want to guarantee.
+	withHelper CallStackHelperLogSink
 }
 
 // Enabled tests whether this Logger is enabled.  For example, commandline
@@ -257,6 +270,9 @@ func (l Logger) Enabled() bool {
 // keys and arbitrary values.
 func (l Logger) Info(msg string, keysAndValues ...interface{}) {
 	if l.Enabled() {
+		if l.withHelper != nil {
+			l.withHelper.GetCallStackHelper()()
+		}
 		l.sink.Info(l.level, msg, keysAndValues...)
 	}
 }
@@ -270,6 +286,9 @@ func (l Logger) Info(msg string, keysAndValues ...interface{}) {
 // while the err argument should be used to attach the actual error that
 // triggered this log line, if present.
 func (l Logger) Error(err error, msg string, keysAndValues ...interface{}) {
+	if l.withHelper != nil {
+		l.withHelper.GetCallStackHelper()()
+	}
 	l.sink.Error(err, msg, keysAndValues...)
 }
 
@@ -313,12 +332,44 @@ func (l Logger) WithName(name string) Logger {
 // If the underlying log implementation supports a WithCallDepth(int) method,
 // it will be called and the result returned.  If the implementation does not
 // support CallDepthLogSink, the original Logger will be returned.
+//
+// To skip one level, WithCallStackHelper() should be used instead of
+// WithCallDepth(1) because it works with implementions that support
+// the CallDepthLogSink and/or CallStackHelperLogSink interfaces.
 func (l Logger) WithCallDepth(depth int) Logger {
 	if l.withCallDepth == nil {
 		return l
 	}
 	l.setSink(l.withCallDepth.WithCallDepth(depth))
 	return l
+}
+
+// WithCallStackHelper returns a new Logger instance that skips the
+// direct caller when logging call site information, if possible.
+// This is useful for users who have helper functions between the
+// "real" call site and the actual calls to Logger methods and want to
+// support loggers which depend on marking each individual helper
+// function, like loggers based on testing.T.
+//
+// In addition to using that new logger instance, callers also must
+// call the returned function.
+//
+// If the underlying log implementation supports a WithCallDepth(int)
+// method, WithCallDepth(1) will be called to produce a new logger. If
+// it supports a WithCallStackHelper() method, that will be also
+// called. If the implementation does not support either of these, the
+// original Logger will be returned.
+func (l Logger) Helper() (func(), Logger) {
+	var helper func()
+	if l.withCallDepth != nil {
+		l.sink = l.withCallDepth.WithCallDepth(1)
+	}
+	if l.withHelper != nil {
+		helper = l.withHelper.GetCallStackHelper()
+	} else {
+		helper = func() {}
+	}
+	return helper, l
 }
 
 // contextKey is how we find Loggers in a context.Context.
@@ -429,4 +480,28 @@ type CallDepthLogSink interface {
 	// If depth is 1 the attribution should skip 1 call frame, and so on.
 	// Successive calls to this are additive.
 	WithCallDepth(depth int) LogSink
+}
+
+// CallStackHelperLogSink represents a Logger that knows how to climb
+// the call stack to identify the original call site and can skip
+// intermediate helper functions if they mark themselves as
+// helper. Go's testing package uses that approach.
+//
+// This is useful for users who have helper functions between the
+// "real" call site and the actual calls to Logger methods.
+// Implementations that log information about the call site (such as
+// file, function, or line) would otherwise log information about the
+// intermediate helper functions.
+//
+// This is an optional interface and implementations are not required
+// to support it. Implementations that choose to support this must not
+// simply implement it as WithCallDepth(1), because
+// Logger.WithCallStackHelper will call both methods if they are
+// present. This should only be implemented for LogSinks that actually
+// need it, as with testing.T.
+type CallStackHelperLogSink interface {
+	// GetCallStackHelper returns a function that must be called
+	// to mark the direct caller as helper function when logging
+	// call site information.
+	GetCallStackHelper() func()
 }
