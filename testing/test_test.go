@@ -19,12 +19,27 @@ package testing
 import (
 	"fmt"
 	"testing"
+
+	"github.com/go-logr/logr"
 )
 
 func TestTestLogger(t *testing.T) {
-	logger := NewTestLogger(t)
-	logger.Info("info")
-	logger.V(0).Info("V(0).info")
-	logger.V(1).Info("v(1).info")
-	logger.Error(fmt.Errorf("error"), "error")
+	log := NewTestLogger(t)
+	log.Info("info")
+	log.V(0).Info("V(0).info")
+	log.V(1).Info("v(1).info")
+	log.Error(fmt.Errorf("error"), "error")
+	Helper(log, "hello world")
+}
+
+func Helper(log logr.Logger, msg string) {
+	helper, log := log.Helper()
+	helper()
+	helper2(log, msg)
+}
+
+func helper2(log logr.Logger, msg string) {
+	helper, log := log.Helper()
+	helper()
+	log.Info(msg)
 }

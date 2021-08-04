@@ -27,7 +27,8 @@ import (
 // Info logs are only enabled at V(0).
 func NewTestLogger(t *testing.T) logr.Logger {
 	fn := func(prefix, args string) {
+		t.Helper()
 		t.Logf("%s: %s", prefix, args)
 	}
-	return funcr.New(fn, funcr.Options{})
+	return funcr.New(fn, funcr.Options{Helper: t.Helper})
 }

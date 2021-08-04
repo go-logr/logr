@@ -46,7 +46,7 @@ type Underlier interface {
 }
 
 func newSink(fn func(prefix, args string), opts Options) logr.LogSink {
-	return &fnlogger{
+	l := &fnlogger{
 		prefix:       "",
 		values:       nil,
 		depth:        0,
@@ -54,7 +54,14 @@ func newSink(fn func(prefix, args string), opts Options) logr.LogSink {
 		logCaller:    opts.LogCaller,
 		logTimestamp: opts.LogTimestamp,
 		verbosity:    opts.Verbosity,
+		helper:       opts.Helper,
 	}
+	if l.helper == nil {
+		// We have to have a valid function for GetCallStackHelper, so
+		// we might as well just cover the nil case once here.
+		l.helper = func() {}
+	}
+	return l
 }
 
 // Options carries parameters which influence the way logs are generated.
@@ -70,6 +77,10 @@ type Options struct {
 	// Verbosity tells funcr which V logs to be write.  Higher values enable
 	// more logs.
 	Verbosity int
+
+	// Helper is an optional function that funcr will call to mark its own
+	// stack frames as helper functions.
+	Helper func()
 }
 
 // MessageClass indicates which category or categories of messages to consider.
@@ -89,6 +100,7 @@ type fnlogger struct {
 	values       []interface{}
 	depth        int
 	write        func(prefix, args string)
+	helper       func()
 	logCaller    MessageClass
 	logTimestamp bool
 	verbosity    int
@@ -98,6 +110,7 @@ type fnlogger struct {
 var _ logr.LogSink = &fnlogger{}
 var _ logr.CallDepthLogSink = &fnlogger{}
 var _ Underlier = &fnlogger{}
+var _ logr.CallStackHelperLogSink = &fnlogger{}
 
 func flatten(kvList ...interface{}) string {
 	if len(kvList)%2 != 0 {
@@ -293,6 +306,7 @@ func (l fnlogger) Info(level int, msg string, kvList ...interface{}) {
 	args = append(args, l.values...)
 	args = append(args, kvList...)
 	argsStr := flatten(args...)
+	l.helper()
 	l.write(l.prefix, argsStr)
 }
 
@@ -313,6 +327,7 @@ func (l fnlogger) Error(err error, msg string, kvList ...interface{}) {
 	args = append(args, l.values...)
 	args = append(args, kvList...)
 	argsStr := flatten(args...)
+	l.helper()
 	l.write(l.prefix, argsStr)
 }
 
@@ -341,4 +356,8 @@ func (l fnlogger) WithCallDepth(depth int) logr.LogSink {
 
 func (l fnlogger) GetUnderlying() func(prefix, args string) {
 	return l.write
+}
+
+func (l fnlogger) GetCallStackHelper() func() {
+	return l.helper
 }
