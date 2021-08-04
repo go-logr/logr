@@ -365,10 +365,16 @@ type LogSink interface {
 // This is an optional interface and implementations are not required to
 // support it.
 type CallDepthLogSink interface {
-	// WithCallDepth returns a Logger that will offset the call stack by the
-	// specified number of frames when logging call site information.  If depth
-	// is 0 the attribution should be to the direct caller of this method.  If
-	// depth is 1 the attribution should skip 1 call frame, and so on.
+	// WithCallDepth returns a LogSink that will offset the call
+	// stack by the specified number of frames when logging call
+	// site information.
+	//
+	// If depth is 0, the LogSink should skip exactly the number
+	// of call frames defined in RuntimeInfo.CallDepth when Info
+	// or Error are called, i.e. the attribution should be to the
+	// direct caller of Logger.Info or Logger.Error.
+	//
+	// If depth is 1 the attribution should skip 1 call frame, and so on.
 	// Successive calls to this are additive.
 	WithCallDepth(depth int) LogSink
 }
