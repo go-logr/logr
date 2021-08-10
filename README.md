@@ -11,7 +11,7 @@ defers the actual act of writing logs (to files, to stdout, or whatever) to the
 `LogSink` interface.
 
 The `LogSink` interface is intended for logging library implementers.  It is a
-pure interface which can be implemented by to provide the actual logging
+pure interface which can be implemented by logging frameworks to provide the actual logging
 functionality.
 
 This decoupling allows application and library developers to write code in
