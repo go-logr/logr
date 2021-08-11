@@ -35,6 +35,14 @@ func New(fn func(prefix, args string), opts Options) logr.Logger {
 	return logr.New(newSink(fn, opts))
 }
 
+// Underlier exposes access to the underlying logging function. Since
+// callers only have a logr.Logger, they have to know which
+// implementation is in use, so this interface is less of an
+// abstraction and more of a way to test type conversion.
+type Underlier interface {
+	GetUnderlying() func(prefix, args string)
+}
+
 func newSink(fn func(prefix, args string), opts Options) logr.LogSink {
 	return &fnlogger{
 		prefix:    "",
@@ -79,6 +87,7 @@ type fnlogger struct {
 // Assert conformance to the interfaces.
 var _ logr.LogSink = &fnlogger{}
 var _ logr.CallDepthLogSink = &fnlogger{}
+var _ Underlier = &fnlogger{}
 
 func flatten(kvList ...interface{}) string {
 	if len(kvList)%2 != 0 {
@@ -312,4 +321,8 @@ func (l fnlogger) WithValues(kvList ...interface{}) logr.LogSink {
 func (l fnlogger) WithCallDepth(depth int) logr.LogSink {
 	l.depth += depth
 	return &l
+}
+
+func (l fnlogger) GetUnderlying() func(prefix, args string) {
+	return l.write
 }

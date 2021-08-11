@@ -103,8 +103,8 @@ func TestNew(t *testing.T) {
 	}
 	logger := New(sink)
 
-	if logger.sink == nil {
-		t.Errorf("expected sink to be set, got %v", logger.sink)
+	if logger.Sink == nil {
+		t.Errorf("expected sink to be set, got %v", logger.Sink)
 	}
 	if calledInit != 1 {
 		t.Errorf("expected sink.Init() to be called once, got %d", calledInit)
@@ -277,7 +277,7 @@ func TestWithValues(t *testing.T) {
 	if calledWithValues != 1 {
 		t.Errorf("expected sink.WithValues() to be called once, got %d", calledWithValues)
 	}
-	if p := out.sink.(*testLogSink); p == sink {
+	if p := out.Sink.(*testLogSink); p == sink {
 		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
 	}
 }
@@ -299,7 +299,7 @@ func TestWithName(t *testing.T) {
 	if calledWithName != 1 {
 		t.Errorf("expected sink.WithName() to be called once, got %d", calledWithName)
 	}
-	if p := out.sink.(*testLogSink); p == sink {
+	if p := out.Sink.(*testLogSink); p == sink {
 		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
 	}
 }
@@ -311,7 +311,7 @@ func TestWithCallDepthNotImplemented(t *testing.T) {
 	logger := New(sink)
 
 	out := logger.WithCallDepth(depthInput)
-	if p := out.sink.(*testLogSink); p != sink {
+	if p := out.Sink.(*testLogSink); p != sink {
 		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
 	}
 }
@@ -333,7 +333,7 @@ func TestWithCallDepthImplemented(t *testing.T) {
 	if calledWithCallDepth != 1 {
 		t.Errorf("expected sink.WithCallDepth() to be called once, got %d", calledWithCallDepth)
 	}
-	if p := out.sink.(*testCallDepthLogSink); p == sink {
+	if p := out.Sink.(*testCallDepthLogSink); p == sink {
 		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
 	}
 }
@@ -348,7 +348,7 @@ func TestContext(t *testing.T) {
 	}
 
 	out := FromContextOrDiscard(ctx)
-	if _, ok := out.sink.(discardLogSink); !ok {
+	if _, ok := out.Sink.(discardLogSink); !ok {
 		t.Errorf("expected a discardLogSink, got %#v", out)
 	}
 
@@ -357,11 +357,11 @@ func TestContext(t *testing.T) {
 	lctx := NewContext(ctx, logger)
 	if out, err := FromContext(lctx); err != nil {
 		t.Errorf("unexpected error: %v", err)
-	} else if p := out.sink.(*testLogSink); p != sink {
+	} else if p := out.Sink.(*testLogSink); p != sink {
 		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
 	}
 	out = FromContextOrDiscard(lctx)
-	if p := out.sink.(*testLogSink); p != sink {
+	if p := out.Sink.(*testLogSink); p != sink {
 		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
 	}
 }

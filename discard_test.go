@@ -24,7 +24,7 @@ import (
 
 func TestDiscard(t *testing.T) {
 	l := Discard()
-	if _, ok := l.sink.(discardLogSink); !ok {
+	if _, ok := l.Sink.(discardLogSink); !ok {
 		t.Error("did not return the expected underlying type")
 	}
 	// Verify that none of the methods panic, there is not more we can test.
