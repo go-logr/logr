@@ -238,10 +238,20 @@ info-type logs.)
 
 #### How do I choose my keys?
 
+Keys are fairly flexible, and can hold more or less any string
+value. For best compatibility with implementations and consistency
+with existing code in other projects, there are a few conventions you
+should consider.
+
 - Make your keys human-readable.
 - Constant keys are generally a good idea.
 - Be consistent across your codebase.
 - Keys should naturally match parts of the message string.
+- Use lower case for simple keys and
+  [lowerCamelCase](https://en.wiktionary.org/wiki/lowerCamelCase) for
+  more complex ones. Kubernetes is one example of a project that has
+  [adopted that
+  convention](https://github.com/kubernetes/community/blob/HEAD/contributors/devel/sig-instrumentation/migration-to-structured-logging.md#name-arguments).
 
 While key names are mostly unrestricted (and spaces are acceptable),
 it's generally a good idea to stick to printable ascii characters, or at
