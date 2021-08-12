@@ -26,9 +26,65 @@ import (
 // NewTestLogger returns a logr.Logger that prints through a testing.T object.
 // Info logs are only enabled at V(0).
 func NewTestLogger(t *testing.T) logr.Logger {
-	fn := func(prefix, args string) {
-		t.Helper()
-		t.Logf("%s: %s", prefix, args)
+	l := &testlogger{
+		Formatter: funcr.NewFormatter(funcr.Options{}),
+		t:         t,
 	}
-	return funcr.New(fn, funcr.Options{Helper: t.Helper})
+	return logr.New(l)
 }
+
+// Underlier exposes access to the underlying testing.T instance. Since
+// callers only have a logr.Logger, they have to know which
+// implementation is in use, so this interface is less of an
+// abstraction and more of a way to test type conversion.
+type Underlier interface {
+	GetUnderlying() *testing.T
+}
+
+type testlogger struct {
+	funcr.Formatter
+	t *testing.T
+}
+
+func (l testlogger) WithName(name string) logr.LogSink {
+	l.Formatter.AddName(name)
+	return &l
+}
+
+func (l testlogger) WithValues(kvList ...interface{}) logr.LogSink {
+	l.Formatter.AddValues(kvList)
+	return &l
+}
+
+func (l testlogger) GetCallStackHelper() func() {
+	return l.t.Helper
+}
+
+func (l testlogger) Info(level int, msg string, kvList ...interface{}) {
+	prefix, args := l.FormatInfo(level, msg, kvList)
+	l.t.Helper()
+	if prefix != "" {
+		l.t.Logf("%s: %s", prefix, args)
+	} else {
+		l.t.Log(args)
+	}
+}
+
+func (l testlogger) Error(err error, msg string, kvList ...interface{}) {
+	prefix, args := l.FormatError(err, msg, kvList)
+	l.t.Helper()
+	if prefix != "" {
+		l.t.Logf("%s: %s", prefix, args)
+	} else {
+		l.t.Log(args)
+	}
+}
+
+func (l testlogger) GetUnderlying() *testing.T {
+	return l.t
+}
+
+// Assert conformance to the interfaces.
+var _ logr.LogSink = &testlogger{}
+var _ logr.CallStackHelperLogSink = &testlogger{}
+var _ Underlier = &testlogger{}

@@ -14,9 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package funcr implements github.com/go-logr/logr.Logger in terms of
-// an arbitrary "write" function.  This will not call String or
+// Package funcr implements formatting of structured log messages and
+// optionally captures the call site. This will not call String or
 // Error methods on values.
+//
+// The simplest way to use it is via its implementation of a
+// github.com/go-logr/logr.LogSink with output through an arbitrary
+// "write" function. Alternatively, funcr can also be embedded inside
+// a custom LogSink implementation. This is useful when the LogSink
+// needs to implement additional methods.
 package funcr
 
 import (
@@ -47,20 +53,11 @@ type Underlier interface {
 
 func newSink(fn func(prefix, args string), opts Options) logr.LogSink {
 	l := &fnlogger{
-		prefix:       "",
-		values:       nil,
-		depth:        0,
-		write:        fn,
-		logCaller:    opts.LogCaller,
-		logTimestamp: opts.LogTimestamp,
-		verbosity:    opts.Verbosity,
-		helper:       opts.Helper,
+		Formatter: NewFormatter(opts),
+		write:     fn,
 	}
-	if l.helper == nil {
-		// We have to have a valid function for GetCallStackHelper, so
-		// we might as well just cover the nil case once here.
-		l.helper = func() {}
-	}
+	// For skipping fnlogger.Info and fnlogger.Error.
+	l.Formatter.AddCallDepth(1)
 	return l
 }
 
@@ -77,10 +74,6 @@ type Options struct {
 	// Verbosity tells funcr which V logs to be write.  Higher values enable
 	// more logs.
 	Verbosity int
-
-	// Helper is an optional function that funcr will call to mark its own
-	// stack frames as helper functions.
-	Helper func()
 }
 
 // MessageClass indicates which category or categories of messages to consider.
@@ -95,22 +88,46 @@ const (
 
 const timestampFmt = "2006-01-02 15:04:05.000000"
 
+// fnlogger inherits some of its LogSink implementation from Formatter
+// and just needs to add some glue code.
 type fnlogger struct {
-	prefix       string
-	values       []interface{}
-	depth        int
-	write        func(prefix, args string)
-	helper       func()
-	logCaller    MessageClass
-	logTimestamp bool
-	verbosity    int
+	Formatter
+	write func(prefix, args string)
+}
+
+func (l fnlogger) WithName(name string) logr.LogSink {
+	l.Formatter.AddName(name)
+	return &l
+}
+
+func (l fnlogger) WithValues(kvList ...interface{}) logr.LogSink {
+	l.Formatter.AddValues(kvList)
+	return &l
+}
+
+func (l fnlogger) WithCallDepth(depth int) logr.LogSink {
+	l.Formatter.AddCallDepth(depth)
+	return &l
+}
+
+func (l fnlogger) Info(level int, msg string, kvList ...interface{}) {
+	prefix, args := l.FormatInfo(level, msg, kvList)
+	l.write(prefix, args)
+}
+
+func (l fnlogger) Error(err error, msg string, kvList ...interface{}) {
+	prefix, args := l.FormatError(err, msg, kvList)
+	l.write(prefix, args)
+}
+
+func (l fnlogger) GetUnderlying() func(prefix, args string) {
+	return l.write
 }
 
 // Assert conformance to the interfaces.
 var _ logr.LogSink = &fnlogger{}
 var _ logr.CallDepthLogSink = &fnlogger{}
 var _ Underlier = &fnlogger{}
-var _ logr.CallStackHelperLogSink = &fnlogger{}
 
 func flatten(kvList ...interface{}) string {
 	if len(kvList)%2 != 0 {
@@ -276,9 +293,34 @@ type callerID struct {
 	Line int    `json:"line"`
 }
 
-func (l fnlogger) caller() callerID {
+// NewFormatter constructs a Formatter.
+func NewFormatter(opts Options) Formatter {
+	f := Formatter{
+		prefix:       "",
+		values:       nil,
+		depth:        0,
+		logCaller:    opts.LogCaller,
+		logTimestamp: opts.LogTimestamp,
+		verbosity:    opts.Verbosity,
+	}
+	return f
+}
+
+// Formatter is an opaque struct which can be embedded in a LogSink
+// implementation. It should be constructed with NewFormatter. Some of
+// its methods directly implement logr.LogSink.
+type Formatter struct {
+	prefix       string
+	values       []interface{}
+	depth        int
+	logCaller    MessageClass
+	logTimestamp bool
+	verbosity    int
+}
+
+func (f Formatter) caller() callerID {
 	// +1 for this frame, +1 for Info/Error.
-	_, file, line, ok := runtime.Caller(l.depth + 2)
+	_, file, line, ok := runtime.Caller(f.depth + 2)
 	if !ok {
 		return callerID{"<unknown>", 0}
 	}
@@ -286,37 +328,39 @@ func (l fnlogger) caller() callerID {
 }
 
 // Note that this receiver is a pointer, so depth can be saved.
-func (l *fnlogger) Init(info logr.RuntimeInfo) {
-	l.depth += info.CallDepth
+func (f *Formatter) Init(info logr.RuntimeInfo) {
+	f.depth += info.CallDepth
 }
 
-func (l fnlogger) Enabled(level int) bool {
-	return level <= l.verbosity
+func (f Formatter) Enabled(level int) bool {
+	return level <= f.verbosity
 }
 
-func (l fnlogger) Info(level int, msg string, kvList ...interface{}) {
+// FormatInfo flattens an Info log message into strings.
+// The prefix will be empty when no names were set.
+func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (prefix, argsStr string) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
-	if l.logTimestamp {
+	if f.logTimestamp {
 		args = append(args, "ts", time.Now().Format(timestampFmt))
 	}
-	if l.logCaller == All || l.logCaller == Info {
-		args = append(args, "caller", l.caller())
+	if f.logCaller == All || f.logCaller == Info {
+		args = append(args, "caller", f.caller())
 	}
 	args = append(args, "level", level, "msg", msg)
-	args = append(args, l.values...)
+	args = append(args, f.values...)
 	args = append(args, kvList...)
-	argsStr := flatten(args...)
-	l.helper()
-	l.write(l.prefix, argsStr)
+	return f.prefix, flatten(args...)
 }
 
-func (l fnlogger) Error(err error, msg string, kvList ...interface{}) {
+// FormatInfo flattens an Error log message into strings.
+// The prefix will be empty when no names were set.
+func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (prefix, argsStr string) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
-	if l.logTimestamp {
+	if f.logTimestamp {
 		args = append(args, "ts", time.Now().Format(timestampFmt))
 	}
-	if l.logCaller == All || l.logCaller == Error {
-		args = append(args, "caller", l.caller())
+	if f.logCaller == All || f.logCaller == Error {
+		args = append(args, "caller", f.caller())
 	}
 	args = append(args, "msg", msg)
 	var loggableErr interface{}
@@ -324,40 +368,27 @@ func (l fnlogger) Error(err error, msg string, kvList ...interface{}) {
 		loggableErr = err.Error()
 	}
 	args = append(args, "error", loggableErr)
-	args = append(args, l.values...)
+	args = append(args, f.values...)
 	args = append(args, kvList...)
-	argsStr := flatten(args...)
-	l.helper()
-	l.write(l.prefix, argsStr)
+	return f.prefix, flatten(args...)
 }
 
-// WithName returns a new Logger with the specified name appended.  funcr
+// AddName appends the specified name.  funcr
 // uses '/' characters to separate name elements.  Callers should not pass '/'
 // in the provided name string, but this library does not actually enforce that.
-func (l fnlogger) WithName(name string) logr.LogSink {
-	if len(l.prefix) > 0 {
-		l.prefix += "/"
+func (f *Formatter) AddName(name string) {
+	if len(f.prefix) > 0 {
+		f.prefix += "/"
 	}
-	l.prefix += name
-	return &l
+	f.prefix += name
 }
 
-func (l fnlogger) WithValues(kvList ...interface{}) logr.LogSink {
+func (f *Formatter) AddValues(kvList []interface{}) {
 	// Three slice args forces a copy.
-	n := len(l.values)
-	l.values = append(l.values[:n:n], kvList...)
-	return &l
+	n := len(f.values)
+	f.values = append(f.values[:n:n], kvList...)
 }
 
-func (l fnlogger) WithCallDepth(depth int) logr.LogSink {
-	l.depth += depth
-	return &l
-}
-
-func (l fnlogger) GetUnderlying() func(prefix, args string) {
-	return l.write
-}
-
-func (l fnlogger) GetCallStackHelper() func() {
-	return l.helper
+func (f *Formatter) AddCallDepth(depth int) {
+	f.depth += depth
 }
