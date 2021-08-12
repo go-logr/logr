@@ -13,9 +13,16 @@ jobs:
       - name: Lint
         run: |
           docker run --rm -v `pwd`:/go/src/prj -w /go/src/prj \
-            golangci/golangci-lint:v1.23.8 golangci-lint run --disable-all -v \
-            -E govet \
-            -E misspell \
-            -E gofmt \
-            -E ineffassign \
-            -E golint
+            golangci/golangci-lint golangci-lint run \
+                -v \
+                --disable-all \
+                -E deadcode \
+                -E gocritic \
+                -E gofmt \
+                -E govet \
+                -E ineffassign \
+                -E misspell \
+                -E revive \
+                -E staticcheck \
+                -E unused \
+                -E varcheck
