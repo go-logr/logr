@@ -262,11 +262,11 @@ func (l Logger) WithName(name string) Logger {
 // If the underlying log implementation supports a WithCallDepth(int) method,
 // it will be called and the result returned.  If the implementation does not
 // support CallDepthLogSink, the original Logger will be returned.
-func (l Logger) WithCallDepth(depth int) Logger {
+func (l Logger) WithCallDepth(depth string) Logger {
 	if l.withCallDepth == nil {
 		return l
 	}
-	l.sink = l.withCallDepth.WithCallDepth(depth)
+	//l.sink = l.withCallDepth.WithCallDepth(depth)
 	return l
 }
 
