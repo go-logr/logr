@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # Copyright 2020 The Kubernetes Authors.
+# Copyright 2021 The logr Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -63,7 +64,7 @@ if [[ -n "${ref}" && -n "${dir}" ]]; then
 fi
 
 if ! which apidiff > /dev/null; then
-  echo "Installing golang.org/x/exp/cmd/apidiff..."
+  echo "Installing golang.org/x/exp/cmd/apidiff"
   pushd "${TMPDIR:-/tmp}" > /dev/null
     GO111MODULE=off go get golang.org/x/exp/cmd/apidiff
   popd > /dev/null
@@ -81,12 +82,13 @@ if [[ -n "${ref}" ]]; then
   clone=$(mktemp -d -t "apidiff.clone.XXXX")
   cleanup_clone_and_output () { rm -fr "${clone}"; cleanup_output; }
   trap cleanup_clone_and_output EXIT
-  git clone . -q --no-tags -b "${ref}" "${clone}"
+  git clone . -q --no-tags "${clone}"
+  git -C "${clone}" co "${ref}"
   dir="${clone}"
 fi
 
 pushd "${dir}" >/dev/null
-  echo "Inspecting API of ${base}..."
+  echo "Inspecting API of ${base}"
   go list ./... > packages.txt
   for pkg in $(cat packages.txt); do
     mkdir -p "${output}/${pkg}"
@@ -96,7 +98,7 @@ popd >/dev/null
 
 retval=0
 
-echo "Comparing with ${base}..."
+echo "Comparing with ${base}"
 for pkg in $(go list ./...); do
   # New packages are ok
   if [ ! -f "${output}/${pkg}/apidiff.output" ]; then
