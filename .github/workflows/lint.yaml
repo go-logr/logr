@@ -1,0 +1,21 @@
+name: Run lint
+
+on: [ push, pull_request ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Lint
+        run: |
+          docker run --rm -v `pwd`:/go/src/prj -w /go/src/prj \
+            golangci/golangci-lint:v1.23.8 golangci-lint run --disable-all -v \
+            -E govet \
+            -E misspell \
+            -E gofmt \
+            -E ineffassign \
+            -E golint
