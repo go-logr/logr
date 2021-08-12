@@ -126,6 +126,7 @@ limitations under the License.
 //   * be constant (not dependent on input data)
 //   * contain only printable characters
 //   * not contain whitespace or punctuation
+//   * use lower case for simple keys and lowerCamelCase for more complex ones
 //
 // These guidelines help ensure that log data is processed properly regardless
 // of the log implementation.  For example, log implementations will try to
