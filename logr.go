@@ -163,21 +163,21 @@ limitations under the License.
 //       GetUnderlying() <underlying-type>
 //   }
 //
-// Logger exports the Sink field to enable type assertions like this:
+// Logger grants access to the sink to enable type assertions like this:
 //   func DoSomethingWithImpl(log logr.Logger) {
-//       if underlier, ok := log.Sink(impl.Underlier) {
+//       if underlier, ok := log.GetSink()(impl.Underlier) {
 //          implLogger := underlier.GetUnderlying()
 //          ...
 //       }
 //   }
 //
 // Custom `With*` functions can be implemented by copying the complete
-// Logger struct and replacing the Sink field in the copy:
+// Logger struct and replacing the sink in the copy:
 //   // WithFooBar changes the foobar parameter in the log sink and returns a new logger with that modified sink.
 //   // It does nothing for loggers where the sink doesn't support that parameter.
 //   func WithFoobar(log logr.Logger, foobar int) logr.Logger {
-//      if foobarLogSink, ok := log.Sink(FoobarSink); ok {
-//         log.Sink = foobarLogSink.WithFooBar(foobar)
+//      if foobarLogSink, ok := log.GetSink()(FoobarSink); ok {
+//         log = log.WithSink(foobarLogSink.WithFooBar(foobar))
 //      }
 //      return log
 //   }
@@ -198,26 +198,45 @@ import (
 // New returns a new Logger instance.  This is primarily used by libraries
 // implementing LogSink, rather than end users.
 func New(sink LogSink) Logger {
-	logger := Logger{
-		Sink: sink,
-	}
-	if withCallDepth, ok := sink.(CallDepthLogSink); ok {
-		logger.withCallDepth = withCallDepth
-	}
+	logger := Logger{}
+	logger.setSink(sink)
 	sink.Init(runtimeInfo)
 	return logger
+}
+
+// setSink stores the sink and updates all related fields. It mutates
+// the logger and thus is only safe to use for loggers that are not
+// accessed concurrently.
+func (l *Logger) setSink(sink LogSink) {
+	l.sink = sink
+	// Always update the cached value to ensure that it matches
+	// the new sink, either with a valid implementation of the
+	// additional interface or nil.
+	l.withCallDepth, _ = sink.(CallDepthLogSink)
+}
+
+// GetSink returns the stored sink.
+func (l Logger) GetSink() LogSink {
+	return l.sink
+}
+
+// WithSink returns a copy of the logger with the new sink.
+func (l Logger) WithSink(sink LogSink) Logger {
+	l.setSink(sink)
+	return l
 }
 
 // Logger is an interface to an abstract logging implementation.  This is a
 // concrete type for performance reasons, but all the real work is passed on
 // to a LogSink.  Implementations of LogSink should provide their own
 // constructors that return Logger, not LogSink.
+//
+// The underlying sink can be accessed through GetSink and be modified
+// through WithSink. This enables the implementation of custom
+// extensions (see "Break Glass" in the package
+// documentation). Normally the sink should be used only indirectly.
 type Logger struct {
-	// Sink is the underlying logger implementation and normally
-	// should not be accessed directly. The field gets exported to
-	// support the implementation of custom extensions (see "Break
-	// Glass" in the package documentation).
-	Sink LogSink
+	sink LogSink
 
 	level         int
 	withCallDepth CallDepthLogSink
@@ -227,7 +246,7 @@ type Logger struct {
 // flags might be used to set the logging verbosity and disable some info
 // logs.
 func (l Logger) Enabled() bool {
-	return l.Sink.Enabled(l.level)
+	return l.sink.Enabled(l.level)
 }
 
 // Info logs a non-error message with the given key/value pairs as context.
@@ -238,7 +257,7 @@ func (l Logger) Enabled() bool {
 // keys and arbitrary values.
 func (l Logger) Info(msg string, keysAndValues ...interface{}) {
 	if l.Enabled() {
-		l.Sink.Info(l.level, msg, keysAndValues...)
+		l.sink.Info(l.level, msg, keysAndValues...)
 	}
 }
 
@@ -251,7 +270,7 @@ func (l Logger) Info(msg string, keysAndValues ...interface{}) {
 // while the err argument should be used to attach the actual error that
 // triggered this log line, if present.
 func (l Logger) Error(err error, msg string, keysAndValues ...interface{}) {
-	l.Sink.Error(err, msg, keysAndValues...)
+	l.sink.Error(err, msg, keysAndValues...)
 }
 
 // V returns a new Logger instance for a specific verbosity level, relative to
@@ -269,7 +288,7 @@ func (l Logger) V(level int) Logger {
 // WithValues returns a new Logger instance with additional key/value pairs.
 // See Info for documentation on how key/value pairs work.
 func (l Logger) WithValues(keysAndValues ...interface{}) Logger {
-	l.Sink = l.Sink.WithValues(keysAndValues...)
+	l.setSink(l.sink.WithValues(keysAndValues...))
 	return l
 }
 
@@ -279,7 +298,7 @@ func (l Logger) WithValues(keysAndValues ...interface{}) Logger {
 // contain only letters, digits, and hyphens (see the package documentation for
 // more information).
 func (l Logger) WithName(name string) Logger {
-	l.Sink = l.Sink.WithName(name)
+	l.setSink(l.sink.WithName(name))
 	return l
 }
 
@@ -298,7 +317,7 @@ func (l Logger) WithCallDepth(depth int) Logger {
 	if l.withCallDepth == nil {
 		return l
 	}
-	l.Sink = l.withCallDepth.WithCallDepth(depth)
+	l.setSink(l.withCallDepth.WithCallDepth(depth))
 	return l
 }
 
