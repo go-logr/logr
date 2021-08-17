@@ -15,7 +15,8 @@ limitations under the License.
 */
 
 // Package funcr implements github.com/go-logr/logr.Logger in terms of
-// an arbitrary "write" function.
+// an arbitrary "write" function.  This will not call String or
+// Error methods on values.
 package funcr
 
 import (
@@ -26,6 +27,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 )
@@ -45,12 +47,13 @@ type Underlier interface {
 
 func newSink(fn func(prefix, args string), opts Options) logr.LogSink {
 	return &fnlogger{
-		prefix:    "",
-		values:    nil,
-		depth:     0,
-		write:     fn,
-		logCaller: opts.LogCaller,
-		verbosity: opts.Verbosity,
+		prefix:       "",
+		values:       nil,
+		depth:        0,
+		write:        fn,
+		logCaller:    opts.LogCaller,
+		logTimestamp: opts.LogTimestamp,
+		verbosity:    opts.Verbosity,
 	}
 }
 
@@ -59,6 +62,10 @@ type Options struct {
 	// LogCaller tells funcr to add a "caller" key to some or all log lines.
 	// This has some overhead, so some users might not want it.
 	LogCaller MessageClass
+
+	// LogTimestamps tells funcr to add a "ts" key to log lines.  This has some
+	// overhead, so some users might not want it.
+	LogTimestamp bool
 
 	// Verbosity tells funcr which V logs to be write.  Higher values enable
 	// more logs.
@@ -75,13 +82,16 @@ const (
 	Error
 )
 
+const timestampFmt = "2006-01-02 15:04:05.000000"
+
 type fnlogger struct {
-	prefix    string
-	values    []interface{}
-	depth     int
-	write     func(prefix, args string)
-	logCaller MessageClass
-	verbosity int
+	prefix       string
+	values       []interface{}
+	depth        int
+	write        func(prefix, args string)
+	logCaller    MessageClass
+	logTimestamp bool
+	verbosity    int
 }
 
 // Assert conformance to the interfaces.
@@ -273,6 +283,9 @@ func (l fnlogger) Enabled(level int) bool {
 
 func (l fnlogger) Info(level int, msg string, kvList ...interface{}) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
+	if l.logTimestamp {
+		args = append(args, "ts", time.Now().Format(timestampFmt))
+	}
 	if l.logCaller == All || l.logCaller == Info {
 		args = append(args, "caller", l.caller())
 	}
@@ -285,6 +298,9 @@ func (l fnlogger) Info(level int, msg string, kvList ...interface{}) {
 
 func (l fnlogger) Error(err error, msg string, kvList ...interface{}) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
+	if l.logTimestamp {
+		args = append(args, "ts", time.Now().Format(timestampFmt))
+	}
 	if l.logCaller == All || l.logCaller == Error {
 		args = append(args, "caller", l.caller())
 	}
