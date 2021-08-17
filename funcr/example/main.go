@@ -42,7 +42,10 @@ func helper2(log logr.Logger, msg string) {
 func main() {
 	log := funcr.New(
 		func(pfx, args string) { fmt.Println(pfx, args) },
-		funcr.Options{LogCaller: funcr.All})
+		funcr.Options{
+			LogCaller:    funcr.All,
+			LogTimestamp: true,
+		})
 	example(log.WithValues("module", "example"))
 }
 
