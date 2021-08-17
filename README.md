@@ -102,7 +102,7 @@ with higher verbosity means more (and less important) logs will be generated.
 
 There are implementations for the following logging libraries:
 
-- **a function**: [funcr](https://github.com/go-logr/logr/funcr)
+- **a function**: [funcr](https://github.com/go-logr/logr/tree/master/funcr)
 - **github.com/google/glog**: [glogr](https://github.com/go-logr/glogr)
 - **k8s.io/klog**: [klogr](https://git.k8s.io/klog/klogr)
 - **go.uber.org/zap**: [zapr](https://github.com/go-logr/zapr)
