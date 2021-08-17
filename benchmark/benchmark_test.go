@@ -87,6 +87,14 @@ func doWithName(b *testing.B, log logr.Logger) {
 	}
 }
 
+//go:noinline
+func doWithCallDepth(b *testing.B, log logr.Logger) {
+	for i := 0; i < b.N; i++ {
+		l := log.WithCallDepth(1)
+		_ = l
+	}
+}
+
 func BenchmarkDiscardInfoOneArg(b *testing.B) {
 	var log logr.Logger = logr.Discard()
 	doInfoOneArg(b, log)
@@ -155,4 +163,9 @@ func BenchmarkFuncrWithValues(b *testing.B) {
 func BenchmarkFuncrWithName(b *testing.B) {
 	var log logr.Logger = funcr.New(noop, funcr.Options{})
 	doWithName(b, log)
+}
+
+func BenchmarkFuncrWithCallDepth(b *testing.B) {
+	var log logr.Logger = funcr.New(noop, funcr.Options{})
+	doWithCallDepth(b, log)
 }
