@@ -204,16 +204,11 @@ func New(sink LogSink) Logger {
 	return logger
 }
 
-// setSink stores the sink and updates all related fields. It mutates
+// setSink stores the sink and updates any related fields. It mutates
 // the logger and thus is only safe to use for loggers that are not
-// accessed concurrently.
+// currently being used concurrently.
 func (l *Logger) setSink(sink LogSink) {
 	l.sink = sink
-	// Always update the cached values to ensure that they match
-	// the new sink, either with a valid implementation of the
-	// additional interface or nil.
-	l.withCallDepth, _ = sink.(CallDepthLogSink)
-	l.withHelper, _ = sink.(CallStackHelperLogSink)
 }
 
 // GetSink returns the stored sink.
@@ -237,22 +232,8 @@ func (l Logger) WithSink(sink LogSink) Logger {
 // extensions (see "Break Glass" in the package
 // documentation). Normally the sink should be used only indirectly.
 type Logger struct {
-	sink LogSink
-
+	sink  LogSink
 	level int
-
-	// withCallDepth is set by setSink if the log sink supports
-	// the CallDepthLogSink interface.
-	withCallDepth CallDepthLogSink
-
-	// withHelper is set by setSink if the log sink supports the
-	// CallStackHelperLogSink interface.
-	//
-	// We only need the function returned by
-	// withHelper.GetCallStackHelper(), but cannot store it here
-	// because that makes Logger non-comparable, which is
-	// something we want to guarantee.
-	withHelper CallStackHelperLogSink
 }
 
 // Enabled tests whether this Logger is enabled.  For example, commandline
@@ -270,8 +251,8 @@ func (l Logger) Enabled() bool {
 // keys and arbitrary values.
 func (l Logger) Info(msg string, keysAndValues ...interface{}) {
 	if l.Enabled() {
-		if l.withHelper != nil {
-			l.withHelper.GetCallStackHelper()()
+		if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
+			withHelper.GetCallStackHelper()()
 		}
 		l.sink.Info(l.level, msg, keysAndValues...)
 	}
@@ -286,8 +267,8 @@ func (l Logger) Info(msg string, keysAndValues ...interface{}) {
 // while the err argument should be used to attach the actual error that
 // triggered this log line, if present.
 func (l Logger) Error(err error, msg string, keysAndValues ...interface{}) {
-	if l.withHelper != nil {
-		l.withHelper.GetCallStackHelper()()
+	if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
+		withHelper.GetCallStackHelper()()
 	}
 	l.sink.Error(err, msg, keysAndValues...)
 }
@@ -337,10 +318,9 @@ func (l Logger) WithName(name string) Logger {
 // WithCallDepth(1) because it works with implementions that support
 // the CallDepthLogSink and/or CallStackHelperLogSink interfaces.
 func (l Logger) WithCallDepth(depth int) Logger {
-	if l.withCallDepth == nil {
-		return l
+	if withCallDepth, ok := l.sink.(CallDepthLogSink); ok {
+		l.setSink(withCallDepth.WithCallDepth(depth))
 	}
-	l.setSink(l.withCallDepth.WithCallDepth(depth))
 	return l
 }
 
@@ -361,11 +341,11 @@ func (l Logger) WithCallDepth(depth int) Logger {
 // original Logger will be returned.
 func (l Logger) Helper() (func(), Logger) {
 	var helper func()
-	if l.withCallDepth != nil {
-		l.sink = l.withCallDepth.WithCallDepth(1)
+	if withCallDepth, ok := l.sink.(CallDepthLogSink); ok {
+		l.setSink(withCallDepth.WithCallDepth(1))
 	}
-	if l.withHelper != nil {
-		helper = l.withHelper.GetCallStackHelper()
+	if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
+		helper = withHelper.GetCallStackHelper()
 	} else {
 		helper = func() {}
 	}
