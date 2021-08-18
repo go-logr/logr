@@ -111,8 +111,8 @@ func TestNew(t *testing.T) {
 	if calledInit != 1 {
 		t.Errorf("expected sink.Init() to be called once, got %d", calledInit)
 	}
-	if logger.withCallDepth != nil {
-		t.Errorf("expected withCallDepth to be nil, got %v", logger.withCallDepth)
+	if _, ok := logger.sink.(CallDepthLogSink); ok {
+		t.Errorf("expected conversion to CallDepthLogSink to fail")
 	}
 }
 
@@ -120,8 +120,8 @@ func TestNewCachesCallDepthInterface(t *testing.T) {
 	sink := &testCallDepthLogSink{}
 	logger := New(sink)
 
-	if logger.withCallDepth == nil {
-		t.Errorf("expected withCallDepth to be set")
+	if _, ok := logger.sink.(CallDepthLogSink); !ok {
+		t.Errorf("expected conversion to CallDepthLogSink to succeed")
 	}
 }
 
