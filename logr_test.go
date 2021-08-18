@@ -78,6 +78,7 @@ func (l *testLogSink) WithName(name string) LogSink {
 
 type testCallDepthLogSink struct {
 	testLogSink
+	callDepth       int
 	fnWithCallDepth func(depth int)
 }
 
@@ -88,6 +89,7 @@ func (l *testCallDepthLogSink) WithCallDepth(depth int) LogSink {
 		l.fnWithCallDepth(depth)
 	}
 	out := *l
+	out.callDepth += depth
 	return &out
 }
 
@@ -103,8 +105,8 @@ func TestNew(t *testing.T) {
 	}
 	logger := New(sink)
 
-	if logger.Sink == nil {
-		t.Errorf("expected sink to be set, got %v", logger.Sink)
+	if logger.sink == nil {
+		t.Errorf("expected sink to be set, got %v", logger.sink)
 	}
 	if calledInit != 1 {
 		t.Errorf("expected sink.Init() to be called once, got %d", calledInit)
@@ -277,7 +279,7 @@ func TestWithValues(t *testing.T) {
 	if calledWithValues != 1 {
 		t.Errorf("expected sink.WithValues() to be called once, got %d", calledWithValues)
 	}
-	if p := out.Sink.(*testLogSink); p == sink {
+	if p := out.sink.(*testLogSink); p == sink {
 		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
 	}
 }
@@ -299,7 +301,7 @@ func TestWithName(t *testing.T) {
 	if calledWithName != 1 {
 		t.Errorf("expected sink.WithName() to be called once, got %d", calledWithName)
 	}
-	if p := out.Sink.(*testLogSink); p == sink {
+	if p := out.sink.(*testLogSink); p == sink {
 		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
 	}
 }
@@ -311,7 +313,7 @@ func TestWithCallDepthNotImplemented(t *testing.T) {
 	logger := New(sink)
 
 	out := logger.WithCallDepth(depthInput)
-	if p := out.Sink.(*testLogSink); p != sink {
+	if p := out.sink.(*testLogSink); p != sink {
 		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
 	}
 }
@@ -333,8 +335,41 @@ func TestWithCallDepthImplemented(t *testing.T) {
 	if calledWithCallDepth != 1 {
 		t.Errorf("expected sink.WithCallDepth() to be called once, got %d", calledWithCallDepth)
 	}
-	if p := out.Sink.(*testCallDepthLogSink); p == sink {
+	p := out.sink.(*testCallDepthLogSink)
+	if p == sink {
 		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
+	}
+	if p.callDepth != depthInput {
+		t.Errorf("expected sink to have call depth %d, got %d", depthInput, p.callDepth)
+	}
+}
+
+func TestWithCallDepthIncremental(t *testing.T) {
+	calledWithCallDepth := 0
+	depthInput := 7
+
+	sink := &testCallDepthLogSink{}
+	sink.fnWithCallDepth = func(depth int) {
+		calledWithCallDepth++
+		if depth != 1 {
+			t.Errorf("unexpected depth input, got %d", depth)
+		}
+	}
+	logger := New(sink)
+
+	out := logger
+	for i := 0; i < depthInput; i++ {
+		out = out.WithCallDepth(1)
+	}
+	if calledWithCallDepth != depthInput {
+		t.Errorf("expected sink.WithCallDepth() to be called %d times, got %d", depthInput, calledWithCallDepth)
+	}
+	p := out.sink.(*testCallDepthLogSink)
+	if p == sink {
+		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
+	}
+	if p.callDepth != depthInput {
+		t.Errorf("expected sink to have call depth %d, got %d", depthInput, p.callDepth)
 	}
 }
 
@@ -348,7 +383,7 @@ func TestContext(t *testing.T) {
 	}
 
 	out := FromContextOrDiscard(ctx)
-	if _, ok := out.Sink.(discardLogSink); !ok {
+	if _, ok := out.sink.(discardLogSink); !ok {
 		t.Errorf("expected a discardLogSink, got %#v", out)
 	}
 
@@ -357,11 +392,11 @@ func TestContext(t *testing.T) {
 	lctx := NewContext(ctx, logger)
 	if out, err := FromContext(lctx); err != nil {
 		t.Errorf("unexpected error: %v", err)
-	} else if p := out.Sink.(*testLogSink); p != sink {
+	} else if p := out.sink.(*testLogSink); p != sink {
 		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
 	}
 	out = FromContextOrDiscard(lctx)
-	if p := out.Sink.(*testLogSink); p != sink {
+	if p := out.sink.(*testLogSink); p != sink {
 		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
 	}
 }

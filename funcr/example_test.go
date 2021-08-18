@@ -28,7 +28,7 @@ func ExampleUnderlier() {
 		fmt.Println(prefix, args)
 	}, funcr.Options{})
 
-	if underlier, ok := log.Sink.(funcr.Underlier); ok {
+	if underlier, ok := log.GetSink().(funcr.Underlier); ok {
 		fn := underlier.GetUnderlying()
 		fn("hello", "world")
 	}

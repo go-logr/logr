@@ -22,7 +22,7 @@ package logr
 func Discard() Logger {
 	return Logger{
 		level: 0,
-		Sink:  discardLogSink{},
+		sink:  discardLogSink{},
 	}
 }
 
