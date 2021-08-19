@@ -279,7 +279,7 @@ func TestWithValues(t *testing.T) {
 	if calledWithValues != 1 {
 		t.Errorf("expected sink.WithValues() to be called once, got %d", calledWithValues)
 	}
-	if p := out.sink.(*testLogSink); p == sink {
+	if p, _ := out.sink.(*testLogSink); p == sink {
 		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
 	}
 }
@@ -301,7 +301,7 @@ func TestWithName(t *testing.T) {
 	if calledWithName != 1 {
 		t.Errorf("expected sink.WithName() to be called once, got %d", calledWithName)
 	}
-	if p := out.sink.(*testLogSink); p == sink {
+	if p, _ := out.sink.(*testLogSink); p == sink {
 		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
 	}
 }
@@ -313,7 +313,7 @@ func TestWithCallDepthNotImplemented(t *testing.T) {
 	logger := New(sink)
 
 	out := logger.WithCallDepth(depthInput)
-	if p := out.sink.(*testLogSink); p != sink {
+	if p, _ := out.sink.(*testLogSink); p != sink {
 		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
 	}
 }
@@ -335,7 +335,7 @@ func TestWithCallDepthImplemented(t *testing.T) {
 	if calledWithCallDepth != 1 {
 		t.Errorf("expected sink.WithCallDepth() to be called once, got %d", calledWithCallDepth)
 	}
-	p := out.sink.(*testCallDepthLogSink)
+	p, _ := out.sink.(*testCallDepthLogSink)
 	if p == sink {
 		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
 	}
@@ -364,7 +364,7 @@ func TestWithCallDepthIncremental(t *testing.T) {
 	if calledWithCallDepth != depthInput {
 		t.Errorf("expected sink.WithCallDepth() to be called %d times, got %d", depthInput, calledWithCallDepth)
 	}
-	p := out.sink.(*testCallDepthLogSink)
+	p, _ := out.sink.(*testCallDepthLogSink)
 	if p == sink {
 		t.Errorf("expected output to be different from input, got in=%p, out=%p", sink, p)
 	}
@@ -392,11 +392,11 @@ func TestContext(t *testing.T) {
 	lctx := NewContext(ctx, logger)
 	if out, err := FromContext(lctx); err != nil {
 		t.Errorf("unexpected error: %v", err)
-	} else if p := out.sink.(*testLogSink); p != sink {
+	} else if p, _ := out.sink.(*testLogSink); p != sink {
 		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
 	}
 	out = FromContextOrDiscard(lctx)
-	if p := out.sink.(*testLogSink); p != sink {
+	if p, _ := out.sink.(*testLogSink); p != sink {
 		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
 	}
 }

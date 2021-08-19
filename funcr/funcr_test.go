@@ -460,7 +460,7 @@ func TestInfoWithCallDepth(t *testing.T) {
 	t.Run("one", func(t *testing.T) {
 		cap := &capture{}
 		sink := newSink(cap.Func, Options{LogCaller: All})
-		dSink := sink.(logr.CallDepthLogSink)
+		dSink, _ := sink.(logr.CallDepthLogSink)
 		sink = dSink.WithCallDepth(1)
 		sink.Info(0, "msg")
 		_, file, line, _ := runtime.Caller(1)
@@ -475,7 +475,7 @@ func TestErrorWithCallDepth(t *testing.T) {
 	t.Run("one", func(t *testing.T) {
 		cap := &capture{}
 		sink := newSink(cap.Func, Options{LogCaller: All})
-		dSink := sink.(logr.CallDepthLogSink)
+		dSink, _ := sink.(logr.CallDepthLogSink)
 		sink = dSink.WithCallDepth(1)
 		sink.Error(fmt.Errorf("err"), "msg")
 		_, file, line, _ := runtime.Caller(1)
