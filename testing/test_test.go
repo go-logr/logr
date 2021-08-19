@@ -23,12 +23,13 @@ import (
 	"github.com/go-logr/logr"
 )
 
-func TestTestLogger(t *testing.T) {
+func TestLogger(t *testing.T) {
 	log := NewTestLogger(t)
 	log.Info("info")
 	log.V(0).Info("V(0).info")
 	log.V(1).Info("v(1).info")
 	log.Error(fmt.Errorf("error"), "error")
+	log.WithName("testing").Info("with prefix")
 	Helper(log, "hello world")
 }
 
