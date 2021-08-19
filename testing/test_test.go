@@ -31,6 +31,12 @@ func TestLogger(t *testing.T) {
 	log.Error(fmt.Errorf("error"), "error")
 	log.WithName("testing").Info("with prefix")
 	Helper(log, "hello world")
+
+	log = NewTestLoggerWithOptions(t, Options{
+		LogTimestamp: true,
+		Verbosity:    1,
+	})
+	log.V(1).Info("v(1).info with options")
 }
 
 func Helper(log logr.Logger, msg string) {

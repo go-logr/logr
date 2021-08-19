@@ -33,6 +33,31 @@ func NewTestLogger(t *testing.T) logr.Logger {
 	return logr.New(l)
 }
 
+// Options carries parameters which influence the way logs are generated.
+type Options struct {
+	// LogTimestamp tells the logger to add a "ts" key to log
+	// lines. This has some overhead, so some users might not want
+	// it.
+	LogTimestamp bool
+
+	// Verbosity tells the logger which V logs to be write.
+	// Higher values enable more logs.
+	Verbosity int
+}
+
+// NewTestLoggerWithOptions returns a logr.Logger that prints through a testing.T object.
+// In contrast to the simpler NewTestLogger, output formatting can be configured.
+func NewTestLoggerWithOptions(t *testing.T, opts Options) logr.Logger {
+	l := &testlogger{
+		Formatter: funcr.NewFormatter(funcr.Options{
+			LogTimestamp: opts.LogTimestamp,
+			Verbosity:    opts.Verbosity,
+		}),
+		t: t,
+	}
+	return logr.New(l)
+}
+
 // Underlier exposes access to the underlying testing.T instance. Since
 // callers only have a logr.Logger, they have to know which
 // implementation is in use, so this interface is less of an

@@ -67,7 +67,7 @@ type Options struct {
 	// This has some overhead, so some users might not want it.
 	LogCaller MessageClass
 
-	// LogTimestamps tells funcr to add a "ts" key to log lines.  This has some
+	// LogTimestamp tells funcr to add a "ts" key to log lines.  This has some
 	// overhead, so some users might not want it.
 	LogTimestamp bool
 
