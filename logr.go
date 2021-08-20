@@ -48,8 +48,8 @@ limitations under the License.
 // # Verbosity
 //
 // Often we want to log information only when the application in "verbose
-// mode".  To write log-lines that are more verbose, Logger has a V() method.
-// The higher the V-level of a log-line, the less critical it is considered.
+// mode".  To write log lines that are more verbose, Logger has a V() method.
+// The higher the V-level of a log line, the less critical it is considered.
 // Log-lines with V-levels that are not enabled (as per the LogSink) will not
 // be written.  Level V(0) is the default, and logger.V(0).Info() has the same
 // meaning as logger.Info().  Negative V-levels have the same meaning as V(0).
@@ -89,7 +89,7 @@ limitations under the License.
 //   log.Printf("decided to set field foo to value %q for object %s/%s",
 //       targetValue, object.Namespace, object.Name)
 //
-// With logr's we'd write:
+// With logr we'd write:
 //   // Elsewhere: set up the logger to log the object name.
 //   obj.logger = mainLogger.WithValues(
 //       "name", obj.name, "namespace", obj.namespace)
@@ -166,8 +166,9 @@ limitations under the License.
 //
 // Custom `With*` functions can be implemented by copying the complete
 // Logger struct and replacing the sink in the copy:
-//   // WithFooBar changes the foobar parameter in the log sink and returns a new logger with that modified sink.
-//   // It does nothing for loggers where the sink doesn't support that parameter.
+//   // WithFooBar changes the foobar parameter in the log sink and returns a
+//   // new logger with that modified sink.  It does nothing for loggers where
+//   // the sink doesn't support that parameter.
 //   func WithFoobar(log logr.Logger, foobar int) logr.Logger {
 //      if foobarLogSink, ok := log.GetSink()(FoobarSink); ok {
 //         log = log.WithSink(foobarLogSink.WithFooBar(foobar))
@@ -175,13 +176,13 @@ limitations under the License.
 //      return log
 //   }
 //
-// Don't use New to construct a new Logger with a LogSink retrieved
-// from an existing Logger. Source code attribution might not work
-// correctly and unexported fields in Logger get lost.
+// Don't use New to construct a new Logger with a LogSink retrieved from an
+// existing Logger. Source code attribution might not work correctly and
+// unexported fields in Logger get lost.
 //
-// Beware that the same LogSink instance may be shared by different
-// logger instances. Calling functions that modify the LogSink will
-// affect all of those.
+// Beware that the same LogSink instance may be shared by different logger
+// instances. Calling functions that modify the LogSink will affect all of
+// those.
 package logr
 
 import (
@@ -197,9 +198,9 @@ func New(sink LogSink) Logger {
 	return logger
 }
 
-// setSink stores the sink and updates any related fields. It mutates
-// the logger and thus is only safe to use for loggers that are not
-// currently being used concurrently.
+// setSink stores the sink and updates any related fields. It mutates the
+// logger and thus is only safe to use for loggers that are not currently being
+// used concurrently.
 func (l *Logger) setSink(sink LogSink) {
 	l.sink = sink
 }
@@ -216,32 +217,31 @@ func (l Logger) WithSink(sink LogSink) Logger {
 }
 
 // Logger is an interface to an abstract logging implementation.  This is a
-// concrete type for performance reasons, but all the real work is passed on
-// to a LogSink.  Implementations of LogSink should provide their own
-// constructors that return Logger, not LogSink.
+// concrete type for performance reasons, but all the real work is passed on to
+// a LogSink.  Implementations of LogSink should provide their own constructors
+// that return Logger, not LogSink.
 //
-// The underlying sink can be accessed through GetSink and be modified
-// through WithSink. This enables the implementation of custom
-// extensions (see "Break Glass" in the package
-// documentation). Normally the sink should be used only indirectly.
+// The underlying sink can be accessed through GetSink and be modified through
+// WithSink. This enables the implementation of custom extensions (see "Break
+// Glass" in the package documentation). Normally the sink should be used only
+// indirectly.
 type Logger struct {
 	sink  LogSink
 	level int
 }
 
 // Enabled tests whether this Logger is enabled.  For example, commandline
-// flags might be used to set the logging verbosity and disable some info
-// logs.
+// flags might be used to set the logging verbosity and disable some info logs.
 func (l Logger) Enabled() bool {
 	return l.sink.Enabled(l.level)
 }
 
 // Info logs a non-error message with the given key/value pairs as context.
 //
-// The msg argument should be used to add some constant description to
-// the log line.  The key/value pairs can then be used to add additional
-// variable information.  The key/value pairs must alternate string
-// keys and arbitrary values.
+// The msg argument should be used to add some constant description to the log
+// line.  The key/value pairs can then be used to add additional variable
+// information.  The key/value pairs must alternate string keys and arbitrary
+// values.
 func (l Logger) Info(msg string, keysAndValues ...interface{}) {
 	if l.Enabled() {
 		if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
@@ -308,8 +308,8 @@ func (l Logger) WithName(name string) Logger {
 // support CallDepthLogSink, the original Logger will be returned.
 //
 // To skip one level, WithCallStackHelper() should be used instead of
-// WithCallDepth(1) because it works with implementions that support
-// the CallDepthLogSink and/or CallStackHelperLogSink interfaces.
+// WithCallDepth(1) because it works with implementions that support the
+// CallDepthLogSink and/or CallStackHelperLogSink interfaces.
 func (l Logger) WithCallDepth(depth int) Logger {
 	if withCallDepth, ok := l.sink.(CallDepthLogSink); ok {
 		l.setSink(withCallDepth.WithCallDepth(depth))
@@ -317,21 +317,20 @@ func (l Logger) WithCallDepth(depth int) Logger {
 	return l
 }
 
-// WithCallStackHelper returns a new Logger instance that skips the
-// direct caller when logging call site information, if possible.
-// This is useful for users who have helper functions between the
-// "real" call site and the actual calls to Logger methods and want to
-// support loggers which depend on marking each individual helper
-// function, like loggers based on testing.T.
+// WithCallStackHelper returns a new Logger instance that skips the direct
+// caller when logging call site information, if possible.  This is useful for
+// users who have helper functions between the "real" call site and the actual
+// calls to Logger methods and want to support loggers which depend on marking
+// each individual helper function, like loggers based on testing.T.
 //
-// In addition to using that new logger instance, callers also must
-// call the returned function.
+// In addition to using that new logger instance, callers also must call the
+// returned function.
 //
-// If the underlying log implementation supports a WithCallDepth(int)
-// method, WithCallDepth(1) will be called to produce a new logger. If
-// it supports a WithCallStackHelper() method, that will be also
-// called. If the implementation does not support either of these, the
-// original Logger will be returned.
+// If the underlying log implementation supports a WithCallDepth(int) method,
+// WithCallDepth(1) will be called to produce a new logger. If it supports a
+// WithCallStackHelper() method, that will be also called. If the
+// implementation does not support either of these, the original Logger will be
+// returned.
 func (l Logger) WithCallStackHelper() (func(), Logger) {
 	var helper func()
 	if withCallDepth, ok := l.sink.(CallDepthLogSink); ok {

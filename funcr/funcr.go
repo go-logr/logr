@@ -331,7 +331,9 @@ func (f Formatter) caller() callerID {
 	return callerID{filepath.Base(file), line}
 }
 
-// Init uses a pointer receiver, so depth can be saved.
+// Init configures this Formatter from runtime info, such as the call depth
+// imposed by logr itself.
+// Note that this receiver is a pointer, so depth can be saved.
 func (f *Formatter) Init(info logr.RuntimeInfo) {
 	f.depth += info.CallDepth
 }
@@ -378,9 +380,9 @@ func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (pre
 	return f.prefix, flatten(args...)
 }
 
-// AddName appends the specified name.  funcr
-// uses '/' characters to separate name elements.  Callers should not pass '/'
-// in the provided name string, but this library does not actually enforce that.
+// AddName appends the specified name.  funcr uses '/' characters to separate
+// name elements.  Callers should not pass '/' in the provided name string, but
+// this library does not actually enforce that.
 func (f *Formatter) AddName(name string) {
 	if len(f.prefix) > 0 {
 		f.prefix += "/"
@@ -388,15 +390,16 @@ func (f *Formatter) AddName(name string) {
 	f.prefix += name
 }
 
-// AddValues appends the specified values.
+// AddValues adds key-value pairs to the set of saved values to be logged with
+// each log line.
 func (f *Formatter) AddValues(kvList []interface{}) {
 	// Three slice args forces a copy.
 	n := len(f.values)
 	f.values = append(f.values[:n:n], kvList...)
 }
 
-// AddCallDepth increases the number of stack frames that need to be
-// skipped.
+// AddCallDepth increases the number of stack-frames to skip when attributing
+// the log line to a file and line.
 func (f *Formatter) AddCallDepth(depth int) {
 	f.depth += depth
 }

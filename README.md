@@ -261,7 +261,7 @@ least match the general character set of your log lines.
 
 The point of structured logging is to make later log processing easier.  Your
 keys are, effectively, the schema of each log message.  If you use different
-keys across instances of the same log-line, you will make your structured logs
+keys across instances of the same log line, you will make your structured logs
 much harder to use.  `Sprintf()` is for values, not for keys!
 
 #### Why is this not a pure interface?
