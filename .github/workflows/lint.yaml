@@ -22,6 +22,7 @@ jobs:
                 -v
                 --max-same-issues 10
                 --disable-all
+                --exclude-use-default=false
                 -E asciicheck
                 -E deadcode
                 -E errcheck

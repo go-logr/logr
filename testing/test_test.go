@@ -40,13 +40,13 @@ func TestLogger(t *testing.T) {
 }
 
 func Helper(log logr.Logger, msg string) {
-	helper, log := log.Helper()
+	helper, log := log.WithCallStackHelper()
 	helper()
 	helper2(log, msg)
 }
 
 func helper2(log logr.Logger, msg string) {
-	helper, log := log.Helper()
+	helper, log := log.WithCallStackHelper()
 	helper()
 	log.Info(msg)
 }
