@@ -80,9 +80,13 @@ type Options struct {
 type MessageClass int
 
 const (
+	// None ignores all message classes.
 	None MessageClass = iota
+	// All considers all message classes.
 	All
+	// Info only considers info messages.
 	Info
+	// Error only considers error messages.
 	Error
 )
 
@@ -327,11 +331,12 @@ func (f Formatter) caller() callerID {
 	return callerID{filepath.Base(file), line}
 }
 
-// Note that this receiver is a pointer, so depth can be saved.
+// Init uses a pointer receiver, so depth can be saved.
 func (f *Formatter) Init(info logr.RuntimeInfo) {
 	f.depth += info.CallDepth
 }
 
+// Enabled checks whether an info message at the given level should be logged.
 func (f Formatter) Enabled(level int) bool {
 	return level <= f.verbosity
 }
@@ -352,7 +357,7 @@ func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (pref
 	return f.prefix, flatten(args...)
 }
 
-// FormatInfo flattens an Error log message into strings.
+// FormatError flattens an Error log message into strings.
 // The prefix will be empty when no names were set.
 func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (prefix, argsStr string) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
@@ -383,12 +388,15 @@ func (f *Formatter) AddName(name string) {
 	f.prefix += name
 }
 
+// AddValues appends the specified values.
 func (f *Formatter) AddValues(kvList []interface{}) {
 	// Three slice args forces a copy.
 	n := len(f.values)
 	f.values = append(f.values[:n:n], kvList...)
 }
 
+// AddCallDepth increases the number of stack frames that need to be
+// skipped.
 func (f *Formatter) AddCallDepth(depth int) {
 	f.depth += depth
 }

@@ -332,7 +332,7 @@ func (l Logger) WithCallDepth(depth int) Logger {
 // it supports a WithCallStackHelper() method, that will be also
 // called. If the implementation does not support either of these, the
 // original Logger will be returned.
-func (l Logger) Helper() (func(), Logger) {
+func (l Logger) WithCallStackHelper() (func(), Logger) {
 	var helper func()
 	if withCallDepth, ok := l.sink.(CallDepthLogSink); ok {
 		l.setSink(withCallDepth.WithCallDepth(1))
