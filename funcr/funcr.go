@@ -343,6 +343,12 @@ func (f Formatter) Enabled(level int) bool {
 	return level <= f.verbosity
 }
 
+// GetDepth returns the current depth of this Formatter.  This is useful for
+// implementations which do their own caller attribution.
+func (f Formatter) GetDepth() int {
+	return f.depth
+}
+
 // FormatInfo flattens an Info log message into strings.
 // The prefix will be empty when no names were set.
 func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (prefix, argsStr string) {
