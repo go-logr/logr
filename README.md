@@ -102,14 +102,15 @@ with higher verbosity means more (and less important) logs will be generated.
 
 There are implementations for the following logging libraries:
 
-- **a function**: [funcr](https://github.com/go-logr/logr/tree/master/funcr)
+- **a function** (can bridge to non-structured libraries): [funcr](https://github.com/go-logr/logr/tree/master/funcr)
 - **github.com/google/glog**: [glogr](https://github.com/go-logr/glogr)
-- **k8s.io/klog**: [klogr](https://git.k8s.io/klog/klogr)
+- **k8s.io/klog** (for Kubernetes): [klogr](https://git.k8s.io/klog/klogr)
 - **go.uber.org/zap**: [zapr](https://github.com/go-logr/zapr)
 - **log** (the Go standard library logger): [stdr](https://github.com/go-logr/stdr)
 - **github.com/sirupsen/logrus**: [logrusr](https://github.com/bombsimon/logrusr)
 - **github.com/wojas/genericr**: [genericr](https://github.com/wojas/genericr) (makes it easy to implement your own backend)
 - **logfmt** (Heroku style [logging](https://www.brandur.org/logfmt)): [logfmtr](https://github.com/iand/logfmtr)
+- **zerolog**: [zerologr](https://github.com/hn8/zerologr)
 
 ## FAQ
 
