@@ -287,6 +287,9 @@ func prettyWithFlags(value interface{}, flags uint32) string {
 		buf.WriteRune('}')
 		return buf.String()
 	case reflect.Ptr, reflect.Interface:
+		if v.IsNil() {
+			return "null"
+		}
 		return pretty(v.Elem().Interface())
 	}
 	return fmt.Sprintf(`"<unhandled-%s>"`, t.Kind().String())

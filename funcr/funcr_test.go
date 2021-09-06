@@ -95,6 +95,15 @@ func TestPretty(t *testing.T) {
 			{"nine", "three"},
 			{"seven", "six"},
 		},
+		struct {
+			A *int
+			B *int
+			C interface{}
+			D interface{}
+		}{
+			B: ptrint(1),
+			D: interface{}(2),
+		},
 	}
 
 	for i, tc := range cases {
