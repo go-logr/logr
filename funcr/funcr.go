@@ -177,7 +177,7 @@ func prettyWithFlags(value interface{}, flags uint32) string {
 			return v
 		}
 		// This is empirically faster than strings.Builder.
-		return `"` + v + `"`
+		return strconv.Quote(v)
 	case int:
 		return strconv.FormatInt(int64(v), 10)
 	case int8:
@@ -204,6 +204,10 @@ func prettyWithFlags(value interface{}, flags uint32) string {
 		return strconv.FormatFloat(float64(v), 'f', -1, 32)
 	case float64:
 		return strconv.FormatFloat(v, 'f', -1, 64)
+	case complex64:
+		return `"` + strconv.FormatComplex(complex128(v), 'f', -1, 64) + `"`
+	case complex128:
+		return `"` + strconv.FormatComplex(v, 'f', -1, 128) + `"`
 	}
 
 	buf := bytes.NewBuffer(make([]byte, 0, 256))
@@ -229,6 +233,10 @@ func prettyWithFlags(value interface{}, flags uint32) string {
 		return strconv.FormatFloat(float64(v.Float()), 'f', -1, 32)
 	case reflect.Float64:
 		return strconv.FormatFloat(v.Float(), 'f', -1, 64)
+	case reflect.Complex64:
+		return `"` + strconv.FormatComplex(complex128(v.Complex()), 'f', -1, 64) + `"`
+	case reflect.Complex128:
+		return `"` + strconv.FormatComplex(v.Complex(), 'f', -1, 128) + `"`
 	case reflect.Struct:
 		buf.WriteRune('{')
 		for i := 0; i < t.NumField(); i++ {
