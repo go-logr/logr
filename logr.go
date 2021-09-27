@@ -429,6 +429,15 @@ type LogSink interface {
 	WithName(name string) LogSink
 }
 
+// FlushLogSink is an optional interface that LogSinks can implement when they
+// support buffering of log messages.
+type FlushLogSink interface {
+	// Flush should be called by a program shortly before terminating and,
+	// if the underlying LogSink doesn't support periodic flushing by
+	// itself, also at regular intervals.
+	Flush()
+}
+
 // CallDepthLogSink represents a Logger that knows how to climb the call stack
 // to identify the original call site and can offset the depth by a specified
 // number of frames.  This is useful for users who have helper functions
