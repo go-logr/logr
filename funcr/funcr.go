@@ -170,6 +170,10 @@ const (
 func prettyWithFlags(value interface{}, flags uint32) string {
 	// Handling the most common types without reflect is a small perf win.
 	switch v := value.(type) {
+	case logr.Marshaler:
+		// Replace the value with what the value wants to get logged.
+		// That then gets handled below via reflection.
+		value = v.MarshalLog()
 	case bool:
 		return strconv.FormatBool(v)
 	case string:
