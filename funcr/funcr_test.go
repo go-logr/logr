@@ -35,6 +35,32 @@ func ptrstr(s string) *string {
 	return &s
 }
 
+// Logging this should result in the MarshalLog() value.
+type Tmarshaler string
+
+func (t Tmarshaler) MarshalLog() interface{} {
+	return struct{ Inner string }{"I am a logr.Marshaler"}
+}
+
+func (t Tmarshaler) String() string {
+	return "String(): you should not see this"
+}
+
+func (t Tmarshaler) Error() string {
+	return "Error(): you should not see this"
+}
+
+// Logging this should result in the String() value.
+type Tstringer string
+
+func (t Tstringer) String() string {
+	return "I am a fmt.Stringer"
+}
+
+func (t Tstringer) Error() string {
+	return "Error(): you should not see this"
+}
+
 func TestPretty(t *testing.T) {
 	cases := []struct {
 		val interface{}
@@ -92,7 +118,6 @@ func TestPretty(t *testing.T) {
 				"nine": 3,
 			},
 		},
-		{val: fmt.Errorf("error")},
 		{
 			val: struct {
 				X int `json:"x"`
@@ -128,6 +153,18 @@ func TestPretty(t *testing.T) {
 				B: ptrint(1),
 				D: interface{}(2),
 			},
+		},
+		{
+			val: Tmarshaler("foobar"),
+			exp: `{"Inner":"I am a logr.Marshaler"}`,
+		},
+		{
+			val: Tstringer("foobar"),
+			exp: `"I am a fmt.Stringer"`,
+		},
+		{
+			val: fmt.Errorf("error"),
+			exp: `"error"`,
 		},
 	}
 
