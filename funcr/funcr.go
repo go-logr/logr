@@ -15,14 +15,16 @@ limitations under the License.
 */
 
 // Package funcr implements formatting of structured log messages and
-// optionally captures the call site. This will not call String or
-// Error methods on values.
+// optionally captures the call site.
 //
 // The simplest way to use it is via its implementation of a
 // github.com/go-logr/logr.LogSink with output through an arbitrary
 // "write" function. Alternatively, funcr can also be embedded inside
 // a custom LogSink implementation. This is useful when the LogSink
 // needs to implement additional methods.
+//
+// This will respect logr.Marshaler, fmt.Stringer, and error interfaces for
+// values which are being logged.
 package funcr
 
 import (
@@ -168,12 +170,23 @@ const (
 
 // TODO: This is not fast. Most of the overhead goes here.
 func prettyWithFlags(value interface{}, flags uint32) string {
-	// Handling the most common types without reflect is a small perf win.
-	switch v := value.(type) {
-	case logr.Marshaler:
-		// Replace the value with what the value wants to get logged.
+	// Handle types that take full control of logging.
+	if v, ok := value.(logr.Marshaler); ok {
+		// Replace the value with what the type wants to get logged.
 		// That then gets handled below via reflection.
 		value = v.MarshalLog()
+	}
+
+	// Handle types that want to format themselves.
+	switch v := value.(type) {
+	case fmt.Stringer:
+		value = v.String()
+	case error:
+		value = v.Error()
+	}
+
+	// Handling the most common types without reflect is a small perf win.
+	switch v := value.(type) {
 	case bool:
 		return strconv.FormatBool(v)
 	case string:
