@@ -357,18 +357,31 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 				// reflect says this field is only defined for non-exported fields.
 				continue
 			}
-			if i > 0 {
-				buf.WriteByte(',')
-			}
-			buf.WriteByte('"')
 			name := fld.Name
+			omitempty := false
 			if tag, found := fld.Tag.Lookup("json"); found {
+				if tag == "-" {
+					continue
+				}
 				if comma := strings.Index(tag, ","); comma != -1 {
-					name = tag[:comma]
+					if n := tag[:comma]; n != "" {
+						name = n
+					}
+					rest := tag[comma:]
+					if strings.Contains(rest, ",omitempty,") || strings.HasSuffix(rest, ",omitempty") {
+						omitempty = true
+					}
 				} else {
 					name = tag
 				}
 			}
+			if omitempty && isEmpty(v.Field(i)) {
+				continue
+			}
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+			buf.WriteByte('"')
 			buf.WriteString(name)
 			buf.WriteByte('"')
 			buf.WriteByte(':')
@@ -413,6 +426,26 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 		return f.pretty(v.Elem().Interface())
 	}
 	return fmt.Sprintf(`"<unhandled-%s>"`, t.Kind().String())
+}
+
+func isEmpty(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return v.Len() == 0
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() == 0
+	case reflect.Complex64, reflect.Complex128:
+		return v.Complex() == 0
+	case reflect.Interface, reflect.Ptr:
+		return v.IsNil()
+	}
+	return false
 }
 
 type callerID struct {
