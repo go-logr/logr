@@ -175,6 +175,7 @@ type Formatter struct {
 	outputFormat outputFormat
 	prefix       string
 	values       []interface{}
+	valuesStr    string
 	depth        int
 	logCaller    MessageClass
 	logTimestamp bool
@@ -191,23 +192,49 @@ const (
 	outputJSON
 )
 
-func (f Formatter) flatten(kvList ...interface{}) string {
-	if len(kvList)%2 != 0 {
-		kvList = append(kvList, "<no-value>")
-	}
+// render produces a log-line, ready to use.
+func (f Formatter) render(builtins, args []interface{}) string {
 	// Empirically bytes.Buffer is faster than strings.Builder for this.
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
 	if f.outputFormat == outputJSON {
 		buf.WriteRune('{')
 	}
+	f.flatten(buf, builtins, false)
+	continuing := len(builtins) > 0
+	if len(f.valuesStr) > 0 {
+		if continuing {
+			if f.outputFormat == outputJSON {
+				buf.WriteRune(',')
+			} else {
+				buf.WriteRune(' ')
+			}
+		}
+		continuing = true
+		buf.WriteString(f.valuesStr)
+	}
+	f.flatten(buf, args, continuing)
+	if f.outputFormat == outputJSON {
+		buf.WriteRune('}')
+	}
+	return buf.String()
+}
+
+// flatten renders a list of key-value pairs into a buffer.  If continuing is
+// true, it assumes that the buffer has previous values and will emit a
+// separator (which depends on the output format) before the first pair it
+// writes.
+func (f Formatter) flatten(buf *bytes.Buffer, kvList []interface{}, continuing bool) {
+	if len(kvList)%2 != 0 {
+		kvList = append(kvList, "<no-value>")
+	}
 	for i := 0; i < len(kvList); i += 2 {
 		k, ok := kvList[i].(string)
 		if !ok {
-			k = fmt.Sprintf("<non-string-key-%d>", i/2)
+			k = "<non-string-key>"
 		}
 		v := kvList[i+1]
 
-		if i > 0 {
+		if i > 0 || continuing {
 			if f.outputFormat == outputJSON {
 				buf.WriteRune(',')
 			} else {
@@ -226,10 +253,6 @@ func (f Formatter) flatten(kvList ...interface{}) string {
 		}
 		buf.WriteString(f.pretty(v))
 	}
-	if f.outputFormat == outputJSON {
-		buf.WriteRune('}')
-	}
-	return buf.String()
 }
 
 func (f Formatter) pretty(value interface{}) string {
@@ -441,9 +464,7 @@ func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (pref
 		args = append(args, "caller", f.caller())
 	}
 	args = append(args, "level", level, "msg", msg)
-	args = append(args, f.values...)
-	args = append(args, kvList...)
-	return prefix, f.flatten(args...)
+	return prefix, f.render(args, kvList)
 }
 
 // FormatError flattens an Error log message into strings.
@@ -468,9 +489,7 @@ func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (pre
 		loggableErr = err.Error()
 	}
 	args = append(args, "error", loggableErr)
-	args = append(args, f.values...)
-	args = append(args, kvList...)
-	return f.prefix, f.flatten(args...)
+	return f.prefix, f.render(args, kvList)
 }
 
 // AddName appends the specified name.  funcr uses '/' characters to separate
@@ -489,6 +508,11 @@ func (f *Formatter) AddValues(kvList []interface{}) {
 	// Three slice args forces a copy.
 	n := len(f.values)
 	f.values = append(f.values[:n:n], kvList...)
+
+	// Pre-render values, so we don't have to do it on each Info/Error call.
+	buf := bytes.NewBuffer(make([]byte, 0, 1024))
+	f.flatten(buf, f.values, false)
+	f.valuesStr = buf.String()
 }
 
 // AddCallDepth increases the number of stack-frames to skip when attributing

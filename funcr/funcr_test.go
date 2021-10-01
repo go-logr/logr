@@ -201,7 +201,7 @@ func makeKV(args ...interface{}) []interface{} {
 	return args
 }
 
-func TestFlatten(t *testing.T) {
+func TestRender(t *testing.T) {
 	testCases := []struct {
 		name       string
 		kv         []interface{}
@@ -230,22 +230,26 @@ func TestFlatten(t *testing.T) {
 	}, {
 		name:       "non-string key",
 		kv:         makeKV(123, "val"),
-		expectKV:   `"<non-string-key-0>"="val"`,
-		expectJSON: `{"<non-string-key-0>":"val"}`,
+		expectKV:   `"<non-string-key>"="val"`,
+		expectJSON: `{"<non-string-key>":"val"}`,
 	}}
 
 	fKV := NewFormatter(Options{})
 	fJSON := NewFormatterJSON(Options{})
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			r := fKV.flatten(tc.kv...)
-			if r != tc.expectKV {
-				t.Errorf("expected %q, got %q", tc.expectKV, r)
-			}
-			r = fJSON.flatten(tc.kv...)
-			if r != tc.expectJSON {
-				t.Errorf("expected %q, got %q", tc.expectJSON, r)
-			}
+			t.Run("KV", func(t *testing.T) {
+				r := fKV.render(tc.kv, nil)
+				if r != tc.expectKV {
+					t.Errorf("wrong KV output:\nexpected %q\n     got %q", tc.expectKV, r)
+				}
+			})
+			t.Run("JSON", func(t *testing.T) {
+				r := fJSON.render(tc.kv, nil)
+				if r != tc.expectJSON {
+					t.Errorf("wrong JSON output:\nexpected %q\n     got %q", tc.expectJSON, r)
+				}
+			})
 		})
 	}
 }

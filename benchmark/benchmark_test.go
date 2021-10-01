@@ -41,6 +41,16 @@ func doInfoSeveralArgs(b *testing.B, log logr.Logger) {
 }
 
 //go:noinline
+func doInfoWithValues(b *testing.B, log logr.Logger) {
+	log = log.WithValues("k1", "str", "k2", 222, "k3", true, "k4", 1.0)
+	for i := 0; i < b.N; i++ {
+		log.Info("multi",
+			"bool", true, "string", "str", "int", 42,
+			"float", 3.14, "struct", struct{ X, Y int }{93, 76})
+	}
+}
+
+//go:noinline
 func doV0Info(b *testing.B, log logr.Logger) {
 	for i := 0; i < b.N; i++ {
 		log.V(0).Info("multi",
@@ -102,6 +112,11 @@ func BenchmarkDiscardLogInfoSeveralArgs(b *testing.B) {
 	doInfoSeveralArgs(b, log)
 }
 
+func BenchmarkDiscardLogInfoWithValues(b *testing.B) {
+	var log logr.Logger = logr.Discard()
+	doInfoWithValues(b, log)
+}
+
 func BenchmarkDiscardLogV0Info(b *testing.B) {
 	var log logr.Logger = logr.Discard()
 	doV0Info(b, log)
@@ -148,6 +163,16 @@ func BenchmarkFuncrLogInfoSeveralArgs(b *testing.B) {
 func BenchmarkFuncrJSONLogInfoSeveralArgs(b *testing.B) {
 	var log logr.Logger = funcr.NewJSON(noopJSON, funcr.Options{})
 	doInfoSeveralArgs(b, log)
+}
+
+func BenchmarkFuncrLogInfoWithValues(b *testing.B) {
+	var log logr.Logger = funcr.New(noopKV, funcr.Options{})
+	doInfoWithValues(b, log)
+}
+
+func BenchmarkFuncrJSONLogInfoWithValues(b *testing.B) {
+	var log logr.Logger = funcr.NewJSON(noopJSON, funcr.Options{})
+	doInfoWithValues(b, log)
 }
 
 func BenchmarkFuncrLogV0Info(b *testing.B) {
