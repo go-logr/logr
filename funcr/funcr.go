@@ -135,7 +135,32 @@ var _ logr.LogSink = &fnlogger{}
 var _ logr.CallDepthLogSink = &fnlogger{}
 var _ Underlier = &fnlogger{}
 
-func flatten(kvList ...interface{}) string {
+// NewFormatter constructs a Formatter.
+func NewFormatter(opts Options) Formatter {
+	f := Formatter{
+		prefix:       "",
+		values:       nil,
+		depth:        0,
+		logCaller:    opts.LogCaller,
+		logTimestamp: opts.LogTimestamp,
+		verbosity:    opts.Verbosity,
+	}
+	return f
+}
+
+// Formatter is an opaque struct which can be embedded in a LogSink
+// implementation. It should be constructed with NewFormatter. Some of
+// its methods directly implement logr.LogSink.
+type Formatter struct {
+	prefix       string
+	values       []interface{}
+	depth        int
+	logCaller    MessageClass
+	logTimestamp bool
+	verbosity    int
+}
+
+func (f Formatter) flatten(kvList ...interface{}) string {
 	if len(kvList)%2 != 0 {
 		kvList = append(kvList, "<no-value>")
 	}
@@ -155,13 +180,13 @@ func flatten(kvList ...interface{}) string {
 		buf.WriteString(k)
 		buf.WriteRune('"')
 		buf.WriteRune('=')
-		buf.WriteString(pretty(v))
+		buf.WriteString(f.pretty(v))
 	}
 	return buf.String()
 }
 
-func pretty(value interface{}) string {
-	return prettyWithFlags(value, 0)
+func (f Formatter) pretty(value interface{}) string {
+	return f.prettyWithFlags(value, 0)
 }
 
 const (
@@ -169,7 +194,7 @@ const (
 )
 
 // TODO: This is not fast. Most of the overhead goes here.
-func prettyWithFlags(value interface{}, flags uint32) string {
+func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 	// Handle types that take full control of logging.
 	if v, ok := value.(logr.Marshaler); ok {
 		// Replace the value with what the type wants to get logged.
@@ -257,8 +282,8 @@ func prettyWithFlags(value interface{}, flags uint32) string {
 	case reflect.Struct:
 		buf.WriteRune('{')
 		for i := 0; i < t.NumField(); i++ {
-			f := t.Field(i)
-			if f.PkgPath != "" {
+			fld := t.Field(i)
+			if fld.PkgPath != "" {
 				// reflect says this field is only defined for non-exported fields.
 				continue
 			}
@@ -266,8 +291,8 @@ func prettyWithFlags(value interface{}, flags uint32) string {
 				buf.WriteRune(',')
 			}
 			buf.WriteRune('"')
-			name := f.Name
-			if tag, found := f.Tag.Lookup("json"); found {
+			name := fld.Name
+			if tag, found := fld.Tag.Lookup("json"); found {
 				if comma := strings.Index(tag, ","); comma != -1 {
 					name = tag[:comma]
 				} else {
@@ -277,7 +302,7 @@ func prettyWithFlags(value interface{}, flags uint32) string {
 			buf.WriteString(name)
 			buf.WriteRune('"')
 			buf.WriteRune(':')
-			buf.WriteString(pretty(v.Field(i).Interface()))
+			buf.WriteString(f.pretty(v.Field(i).Interface()))
 		}
 		buf.WriteRune('}')
 		return buf.String()
@@ -288,7 +313,7 @@ func prettyWithFlags(value interface{}, flags uint32) string {
 				buf.WriteRune(',')
 			}
 			e := v.Index(i)
-			buf.WriteString(pretty(e.Interface()))
+			buf.WriteString(f.pretty(e.Interface()))
 		}
 		buf.WriteRune(']')
 		return buf.String()
@@ -303,10 +328,10 @@ func prettyWithFlags(value interface{}, flags uint32) string {
 			}
 			// JSON only does string keys.
 			buf.WriteRune('"')
-			buf.WriteString(prettyWithFlags(it.Key().Interface(), flagRawString))
+			buf.WriteString(f.prettyWithFlags(it.Key().Interface(), flagRawString))
 			buf.WriteRune('"')
 			buf.WriteRune(':')
-			buf.WriteString(pretty(it.Value().Interface()))
+			buf.WriteString(f.pretty(it.Value().Interface()))
 			i++
 		}
 		buf.WriteRune('}')
@@ -315,7 +340,7 @@ func prettyWithFlags(value interface{}, flags uint32) string {
 		if v.IsNil() {
 			return "null"
 		}
-		return pretty(v.Elem().Interface())
+		return f.pretty(v.Elem().Interface())
 	}
 	return fmt.Sprintf(`"<unhandled-%s>"`, t.Kind().String())
 }
@@ -323,31 +348,6 @@ func prettyWithFlags(value interface{}, flags uint32) string {
 type callerID struct {
 	File string `json:"file"`
 	Line int    `json:"line"`
-}
-
-// NewFormatter constructs a Formatter.
-func NewFormatter(opts Options) Formatter {
-	f := Formatter{
-		prefix:       "",
-		values:       nil,
-		depth:        0,
-		logCaller:    opts.LogCaller,
-		logTimestamp: opts.LogTimestamp,
-		verbosity:    opts.Verbosity,
-	}
-	return f
-}
-
-// Formatter is an opaque struct which can be embedded in a LogSink
-// implementation. It should be constructed with NewFormatter. Some of
-// its methods directly implement logr.LogSink.
-type Formatter struct {
-	prefix       string
-	values       []interface{}
-	depth        int
-	logCaller    MessageClass
-	logTimestamp bool
-	verbosity    int
 }
 
 func (f Formatter) caller() callerID {
@@ -390,7 +390,7 @@ func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (pref
 	args = append(args, "level", level, "msg", msg)
 	args = append(args, f.values...)
 	args = append(args, kvList...)
-	return f.prefix, flatten(args...)
+	return f.prefix, f.flatten(args...)
 }
 
 // FormatError flattens an Error log message into strings.
@@ -411,7 +411,7 @@ func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (pre
 	args = append(args, "error", loggableErr)
 	args = append(args, f.values...)
 	args = append(args, kvList...)
-	return f.prefix, flatten(args...)
+	return f.prefix, f.flatten(args...)
 }
 
 // AddName appends the specified name.  funcr uses '/' characters to separate

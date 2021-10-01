@@ -168,8 +168,9 @@ func TestPretty(t *testing.T) {
 		},
 	}
 
+	f := NewFormatter(Options{})
 	for i, tc := range cases {
-		ours := pretty(tc.val)
+		ours := f.pretty(tc.val)
 		want := ""
 		if tc.exp != "" {
 			want = tc.exp
@@ -217,9 +218,10 @@ func TestFlatten(t *testing.T) {
 		expect: `"<non-string-key-0>"="val"`,
 	}}
 
+	f := NewFormatter(Options{})
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			r := flatten(tc.kv...)
+			r := f.flatten(tc.kv...)
 			if r != tc.expect {
 				t.Errorf("expected %q, got %q", tc.expect, r)
 			}
