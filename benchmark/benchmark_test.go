@@ -24,9 +24,6 @@ import (
 	"github.com/go-logr/logr/funcr"
 )
 
-func noop(prefix, args string) {
-}
-
 //go:noinline
 func doInfoOneArg(b *testing.B, log logr.Logger) {
 	for i := 0; i < b.N; i++ {
@@ -95,27 +92,27 @@ func doWithCallDepth(b *testing.B, log logr.Logger) {
 	}
 }
 
-func BenchmarkDiscardInfoOneArg(b *testing.B) {
+func BenchmarkDiscardLogInfoOneArg(b *testing.B) {
 	var log logr.Logger = logr.Discard()
 	doInfoOneArg(b, log)
 }
 
-func BenchmarkDiscardInfoSeveralArgs(b *testing.B) {
+func BenchmarkDiscardLogInfoSeveralArgs(b *testing.B) {
 	var log logr.Logger = logr.Discard()
 	doInfoSeveralArgs(b, log)
 }
 
-func BenchmarkDiscardV0Info(b *testing.B) {
+func BenchmarkDiscardLogV0Info(b *testing.B) {
 	var log logr.Logger = logr.Discard()
 	doV0Info(b, log)
 }
 
-func BenchmarkDiscardV9Info(b *testing.B) {
+func BenchmarkDiscardLogV9Info(b *testing.B) {
 	var log logr.Logger = logr.Discard()
 	doV9Info(b, log)
 }
 
-func BenchmarkDiscardError(b *testing.B) {
+func BenchmarkDiscardLogError(b *testing.B) {
 	var log logr.Logger = logr.Discard()
 	doError(b, log)
 }
@@ -130,42 +127,70 @@ func BenchmarkDiscardWithName(b *testing.B) {
 	doWithName(b, log)
 }
 
-func BenchmarkFuncrInfoOneArg(b *testing.B) {
-	var log logr.Logger = funcr.New(noop, funcr.Options{})
+func noopKV(prefix, args string) {}
+func noopJSON(obj string)        {}
+
+func BenchmarkFuncrLogInfoOneArg(b *testing.B) {
+	var log logr.Logger = funcr.New(noopKV, funcr.Options{})
 	doInfoOneArg(b, log)
 }
 
-func BenchmarkFuncrInfoSeveralArgs(b *testing.B) {
-	var log logr.Logger = funcr.New(noop, funcr.Options{})
+func BenchmarkFuncrJSONLogInfoOneArg(b *testing.B) {
+	var log logr.Logger = funcr.NewJSON(noopJSON, funcr.Options{})
+	doInfoOneArg(b, log)
+}
+
+func BenchmarkFuncrLogInfoSeveralArgs(b *testing.B) {
+	var log logr.Logger = funcr.New(noopKV, funcr.Options{})
 	doInfoSeveralArgs(b, log)
 }
 
-func BenchmarkFuncrV0Info(b *testing.B) {
-	var log logr.Logger = funcr.New(noop, funcr.Options{})
+func BenchmarkFuncrJSONLogInfoSeveralArgs(b *testing.B) {
+	var log logr.Logger = funcr.NewJSON(noopJSON, funcr.Options{})
+	doInfoSeveralArgs(b, log)
+}
+
+func BenchmarkFuncrLogV0Info(b *testing.B) {
+	var log logr.Logger = funcr.New(noopKV, funcr.Options{})
 	doV0Info(b, log)
 }
 
-func BenchmarkFuncrV9Info(b *testing.B) {
-	var log logr.Logger = funcr.New(noop, funcr.Options{})
+func BenchmarkFuncrJSONLogV0Info(b *testing.B) {
+	var log logr.Logger = funcr.NewJSON(noopJSON, funcr.Options{})
+	doV0Info(b, log)
+}
+
+func BenchmarkFuncrLogV9Info(b *testing.B) {
+	var log logr.Logger = funcr.New(noopKV, funcr.Options{})
 	doV9Info(b, log)
 }
 
-func BenchmarkFuncrError(b *testing.B) {
-	var log logr.Logger = funcr.New(noop, funcr.Options{})
+func BenchmarkFuncrJSONLogV9Info(b *testing.B) {
+	var log logr.Logger = funcr.NewJSON(noopJSON, funcr.Options{})
+	doV9Info(b, log)
+}
+
+func BenchmarkFuncrLogError(b *testing.B) {
+	var log logr.Logger = funcr.New(noopKV, funcr.Options{})
+	doError(b, log)
+}
+
+func BenchmarkFuncrJSONLogError(b *testing.B) {
+	var log logr.Logger = funcr.NewJSON(noopJSON, funcr.Options{})
 	doError(b, log)
 }
 
 func BenchmarkFuncrWithValues(b *testing.B) {
-	var log logr.Logger = funcr.New(noop, funcr.Options{})
+	var log logr.Logger = funcr.New(noopKV, funcr.Options{})
 	doWithValues(b, log)
 }
 
 func BenchmarkFuncrWithName(b *testing.B) {
-	var log logr.Logger = funcr.New(noop, funcr.Options{})
+	var log logr.Logger = funcr.New(noopKV, funcr.Options{})
 	doWithName(b, log)
 }
 
 func BenchmarkFuncrWithCallDepth(b *testing.B) {
-	var log logr.Logger = funcr.New(noop, funcr.Options{})
+	var log logr.Logger = funcr.New(noopKV, funcr.Options{})
 	doWithCallDepth(b, log)
 }

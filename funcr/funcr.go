@@ -42,7 +42,16 @@ import (
 
 // New returns a logr.Logger which is implemented by an arbitrary function.
 func New(fn func(prefix, args string), opts Options) logr.Logger {
-	return logr.New(newSink(fn, opts))
+	return logr.New(newSink(fn, NewFormatter(opts)))
+}
+
+// NewJSON returns a logr.Logger which is implemented by an arbitrary function
+// and produces JSON output.
+func NewJSON(fn func(obj string), opts Options) logr.Logger {
+	fnWrapper := func(_, obj string) {
+		fn(obj)
+	}
+	return logr.New(newSink(fnWrapper, NewFormatterJSON(opts)))
 }
 
 // Underlier exposes access to the underlying logging function. Since
@@ -53,9 +62,9 @@ type Underlier interface {
 	GetUnderlying() func(prefix, args string)
 }
 
-func newSink(fn func(prefix, args string), opts Options) logr.LogSink {
+func newSink(fn func(prefix, args string), formatter Formatter) logr.LogSink {
 	l := &fnlogger{
-		Formatter: NewFormatter(opts),
+		Formatter: formatter,
 		write:     fn,
 	}
 	// For skipping fnlogger.Info and fnlogger.Error.
@@ -135,9 +144,19 @@ var _ logr.LogSink = &fnlogger{}
 var _ logr.CallDepthLogSink = &fnlogger{}
 var _ Underlier = &fnlogger{}
 
-// NewFormatter constructs a Formatter.
+// NewFormatter constructs a Formatter which emits a JSON-like key=value format.
 func NewFormatter(opts Options) Formatter {
+	return newFormatter(opts, outputKeyValue)
+}
+
+// NewFormatterJSON constructs a Formatter which emits strict JSON.
+func NewFormatterJSON(opts Options) Formatter {
+	return newFormatter(opts, outputJSON)
+}
+
+func newFormatter(opts Options, outfmt outputFormat) Formatter {
 	f := Formatter{
+		outputFormat: outfmt,
 		prefix:       "",
 		values:       nil,
 		depth:        0,
@@ -152,6 +171,7 @@ func NewFormatter(opts Options) Formatter {
 // implementation. It should be constructed with NewFormatter. Some of
 // its methods directly implement logr.LogSink.
 type Formatter struct {
+	outputFormat outputFormat
 	prefix       string
 	values       []interface{}
 	depth        int
@@ -160,12 +180,25 @@ type Formatter struct {
 	verbosity    int
 }
 
+// outputFormat indicates which outputFormat to use.
+type outputFormat int
+
+const (
+	// outputKeyValue emits a JSON-like key=value format, but not strict JSON.
+	outputKeyValue outputFormat = iota
+	// outputJSON emits strict JSON.
+	outputJSON
+)
+
 func (f Formatter) flatten(kvList ...interface{}) string {
 	if len(kvList)%2 != 0 {
 		kvList = append(kvList, "<no-value>")
 	}
 	// Empirically bytes.Buffer is faster than strings.Builder for this.
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
+	if f.outputFormat == outputJSON {
+		buf.WriteRune('{')
+	}
 	for i := 0; i < len(kvList); i += 2 {
 		k, ok := kvList[i].(string)
 		if !ok {
@@ -174,13 +207,26 @@ func (f Formatter) flatten(kvList ...interface{}) string {
 		v := kvList[i+1]
 
 		if i > 0 {
-			buf.WriteRune(' ')
+			if f.outputFormat == outputJSON {
+				buf.WriteRune(',')
+			} else {
+				// In theory the format could be something we don't understand.  In
+				// practice, we control it, so it won't
+				buf.WriteRune(' ')
+			}
 		}
 		buf.WriteRune('"')
 		buf.WriteString(k)
 		buf.WriteRune('"')
-		buf.WriteRune('=')
+		if f.outputFormat == outputJSON {
+			buf.WriteRune(':')
+		} else {
+			buf.WriteRune('=')
+		}
 		buf.WriteString(f.pretty(v))
+	}
+	if f.outputFormat == outputJSON {
+		buf.WriteRune('}')
 	}
 	return buf.String()
 }
@@ -378,9 +424,15 @@ func (f Formatter) GetDepth() int {
 }
 
 // FormatInfo flattens an Info log message into strings.
-// The prefix will be empty when no names were set.
+// The prefix will be empty when no names were set, or when the output is
+// configured for JSON.
 func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (prefix, argsStr string) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
+	prefix = f.prefix
+	if f.outputFormat == outputJSON {
+		args = append(args, "logger", prefix)
+		prefix = ""
+	}
 	if f.logTimestamp {
 		args = append(args, "ts", time.Now().Format(timestampFmt))
 	}
@@ -390,13 +442,19 @@ func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (pref
 	args = append(args, "level", level, "msg", msg)
 	args = append(args, f.values...)
 	args = append(args, kvList...)
-	return f.prefix, f.flatten(args...)
+	return prefix, f.flatten(args...)
 }
 
 // FormatError flattens an Error log message into strings.
-// The prefix will be empty when no names were set.
+// The prefix will be empty when no names were set,  or when the output is
+// configured for JSON.
 func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (prefix, argsStr string) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
+	prefix = f.prefix
+	if f.outputFormat == outputJSON {
+		args = append(args, "logger", prefix)
+		prefix = ""
+	}
 	if f.logTimestamp {
 		args = append(args, "ts", time.Now().Format(timestampFmt))
 	}

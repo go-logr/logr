@@ -193,37 +193,48 @@ func makeKV(args ...interface{}) []interface{} {
 
 func TestFlatten(t *testing.T) {
 	testCases := []struct {
-		name   string
-		kv     []interface{}
-		expect string
+		name       string
+		kv         []interface{}
+		expectKV   string
+		expectJSON string
 	}{{
-		name:   "nil",
-		kv:     nil,
-		expect: "",
+		name:       "nil",
+		kv:         nil,
+		expectKV:   "",
+		expectJSON: "{}",
 	}, {
-		name:   "empty",
-		kv:     []interface{}{},
-		expect: "",
+		name:       "empty",
+		kv:         []interface{}{},
+		expectKV:   "",
+		expectJSON: "{}",
 	}, {
-		name:   "primitives",
-		kv:     makeKV("int", 1, "str", "ABC", "bool", true),
-		expect: `"int"=1 "str"="ABC" "bool"=true`,
+		name:       "primitives",
+		kv:         makeKV("int", 1, "str", "ABC", "bool", true),
+		expectKV:   `"int"=1 "str"="ABC" "bool"=true`,
+		expectJSON: `{"int":1,"str":"ABC","bool":true}`,
 	}, {
-		name:   "missing value",
-		kv:     makeKV("key"),
-		expect: `"key"="<no-value>"`,
+		name:       "missing value",
+		kv:         makeKV("key"),
+		expectKV:   `"key"="<no-value>"`,
+		expectJSON: `{"key":"<no-value>"}`,
 	}, {
-		name:   "non-string key",
-		kv:     makeKV(123, "val"),
-		expect: `"<non-string-key-0>"="val"`,
+		name:       "non-string key",
+		kv:         makeKV(123, "val"),
+		expectKV:   `"<non-string-key-0>"="val"`,
+		expectJSON: `{"<non-string-key-0>":"val"}`,
 	}}
 
-	f := NewFormatter(Options{})
+	fKV := NewFormatter(Options{})
+	fJSON := NewFormatterJSON(Options{})
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			r := f.flatten(tc.kv...)
-			if r != tc.expect {
-				t.Errorf("expected %q, got %q", tc.expect, r)
+			r := fKV.flatten(tc.kv...)
+			if r != tc.expectKV {
+				t.Errorf("expected %q, got %q", tc.expectKV, r)
+			}
+			r = fJSON.flatten(tc.kv...)
+			if r != tc.expectJSON {
+				t.Errorf("expected %q, got %q", tc.expectJSON, r)
 			}
 		})
 	}
@@ -231,7 +242,7 @@ func TestFlatten(t *testing.T) {
 
 func TestEnabled(t *testing.T) {
 	t.Run("default V", func(t *testing.T) {
-		log := newSink(func(prefix, args string) {}, Options{})
+		log := newSink(func(prefix, args string) {}, NewFormatter(Options{}))
 		if !log.Enabled(0) {
 			t.Errorf("expected true")
 		}
@@ -240,7 +251,7 @@ func TestEnabled(t *testing.T) {
 		}
 	})
 	t.Run("V=9", func(t *testing.T) {
-		log := newSink(func(prefix, args string) {}, Options{Verbosity: 9})
+		log := newSink(func(prefix, args string) {}, NewFormatter(Options{Verbosity: 9}))
 		if !log.Enabled(8) {
 			t.Errorf("expected true")
 		}
@@ -279,7 +290,7 @@ func TestInfo(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cap := &capture{}
-			sink := newSink(cap.Func, Options{})
+			sink := newSink(cap.Func, NewFormatter(Options{}))
 			sink.Info(0, "msg", tc.args...)
 			if cap.log != tc.expect {
 				t.Errorf("\nexpected %q\n     got %q", tc.expect, cap.log)
@@ -291,7 +302,7 @@ func TestInfo(t *testing.T) {
 func TestInfoWithCaller(t *testing.T) {
 	t.Run("LogCaller=All", func(t *testing.T) {
 		cap := &capture{}
-		sink := newSink(cap.Func, Options{LogCaller: All})
+		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: All}))
 		sink.Info(0, "msg")
 		_, file, line, _ := runtime.Caller(0)
 		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d} "level"=0 "msg"="msg"`, filepath.Base(file), line-1)
@@ -301,7 +312,7 @@ func TestInfoWithCaller(t *testing.T) {
 	})
 	t.Run("LogCaller=Info", func(t *testing.T) {
 		cap := &capture{}
-		sink := newSink(cap.Func, Options{LogCaller: Info})
+		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: Info}))
 		sink.Info(0, "msg")
 		_, file, line, _ := runtime.Caller(0)
 		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d} "level"=0 "msg"="msg"`, filepath.Base(file), line-1)
@@ -311,7 +322,7 @@ func TestInfoWithCaller(t *testing.T) {
 	})
 	t.Run("LogCaller=Error", func(t *testing.T) {
 		cap := &capture{}
-		sink := newSink(cap.Func, Options{LogCaller: Error})
+		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: Error}))
 		sink.Info(0, "msg")
 		expect := ` "level"=0 "msg"="msg"`
 		if cap.log != expect {
@@ -320,7 +331,7 @@ func TestInfoWithCaller(t *testing.T) {
 	})
 	t.Run("LogCaller=None", func(t *testing.T) {
 		cap := &capture{}
-		sink := newSink(cap.Func, Options{LogCaller: None})
+		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: None}))
 		sink.Info(0, "msg")
 		expect := ` "level"=0 "msg"="msg"`
 		if cap.log != expect {
@@ -347,7 +358,7 @@ func TestError(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cap := &capture{}
-			sink := newSink(cap.Func, Options{})
+			sink := newSink(cap.Func, NewFormatter(Options{}))
 			sink.Error(fmt.Errorf("err"), "msg", tc.args...)
 			if cap.log != tc.expect {
 				t.Errorf("\nexpected %q\n     got %q", tc.expect, cap.log)
@@ -359,7 +370,7 @@ func TestError(t *testing.T) {
 func TestErrorWithCaller(t *testing.T) {
 	t.Run("LogCaller=All", func(t *testing.T) {
 		cap := &capture{}
-		sink := newSink(cap.Func, Options{LogCaller: All})
+		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: All}))
 		sink.Error(fmt.Errorf("err"), "msg")
 		_, file, line, _ := runtime.Caller(0)
 		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d} "msg"="msg" "error"="err"`, filepath.Base(file), line-1)
@@ -369,7 +380,7 @@ func TestErrorWithCaller(t *testing.T) {
 	})
 	t.Run("LogCaller=Error", func(t *testing.T) {
 		cap := &capture{}
-		sink := newSink(cap.Func, Options{LogCaller: Error})
+		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: Error}))
 		sink.Error(fmt.Errorf("err"), "msg")
 		_, file, line, _ := runtime.Caller(0)
 		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d} "msg"="msg" "error"="err"`, filepath.Base(file), line-1)
@@ -379,7 +390,7 @@ func TestErrorWithCaller(t *testing.T) {
 	})
 	t.Run("LogCaller=Info", func(t *testing.T) {
 		cap := &capture{}
-		sink := newSink(cap.Func, Options{LogCaller: Info})
+		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: Info}))
 		sink.Error(fmt.Errorf("err"), "msg")
 		expect := ` "msg"="msg" "error"="err"`
 		if cap.log != expect {
@@ -388,7 +399,7 @@ func TestErrorWithCaller(t *testing.T) {
 	})
 	t.Run("LogCaller=None", func(t *testing.T) {
 		cap := &capture{}
-		sink := newSink(cap.Func, Options{LogCaller: None})
+		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: None}))
 		sink.Error(fmt.Errorf("err"), "msg")
 		expect := ` "msg"="msg" "error"="err"`
 		if cap.log != expect {
@@ -418,7 +429,7 @@ func TestInfoWithName(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cap := &capture{}
-			sink := newSink(cap.Func, Options{})
+			sink := newSink(cap.Func, NewFormatter(Options{}))
 			for _, n := range tc.names {
 				sink = sink.WithName(n)
 			}
@@ -451,7 +462,7 @@ func TestErrorWithName(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cap := &capture{}
-			sink := newSink(cap.Func, Options{})
+			sink := newSink(cap.Func, NewFormatter(Options{}))
 			for _, n := range tc.names {
 				sink = sink.WithName(n)
 			}
@@ -489,7 +500,7 @@ func TestInfoWithValues(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cap := &capture{}
-			sink := newSink(cap.Func, Options{})
+			sink := newSink(cap.Func, NewFormatter(Options{}))
 			sink = sink.WithValues(tc.values...)
 			sink.Info(0, "msg", tc.args...)
 			if cap.log != tc.expect {
@@ -525,7 +536,7 @@ func TestErrorWithValues(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cap := &capture{}
-			sink := newSink(cap.Func, Options{})
+			sink := newSink(cap.Func, NewFormatter(Options{}))
 			sink = sink.WithValues(tc.values...)
 			sink.Error(fmt.Errorf("err"), "msg", tc.args...)
 			if cap.log != tc.expect {
@@ -538,7 +549,7 @@ func TestErrorWithValues(t *testing.T) {
 func TestInfoWithCallDepth(t *testing.T) {
 	t.Run("one", func(t *testing.T) {
 		cap := &capture{}
-		sink := newSink(cap.Func, Options{LogCaller: All})
+		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: All}))
 		dSink, _ := sink.(logr.CallDepthLogSink)
 		sink = dSink.WithCallDepth(1)
 		sink.Info(0, "msg")
@@ -553,7 +564,7 @@ func TestInfoWithCallDepth(t *testing.T) {
 func TestErrorWithCallDepth(t *testing.T) {
 	t.Run("one", func(t *testing.T) {
 		cap := &capture{}
-		sink := newSink(cap.Func, Options{LogCaller: All})
+		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: All}))
 		dSink, _ := sink.(logr.CallDepthLogSink)
 		sink = dSink.WithCallDepth(1)
 		sink.Error(fmt.Errorf("err"), "msg")
