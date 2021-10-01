@@ -229,15 +229,22 @@ func (f Formatter) render(builtins, args []interface{}) string {
 // flatten renders a list of key-value pairs into a buffer.  If continuing is
 // true, it assumes that the buffer has previous values and will emit a
 // separator (which depends on the output format) before the first pair it
-// writes.
-func (f Formatter) flatten(buf *bytes.Buffer, kvList []interface{}, continuing bool) {
+// writes.  This also returns a potentially modified version of kvList, which
+// ensures that there is a value for every key (adding a value if needed) and
+// that each key is a string (substituting a key if needed).
+func (f Formatter) flatten(buf *bytes.Buffer, kvList []interface{}, continuing bool) []interface{} {
 	if len(kvList)%2 != 0 {
 		kvList = append(kvList, "<no-value>")
 	}
 	for i := 0; i < len(kvList); i += 2 {
 		k, ok := kvList[i].(string)
 		if !ok {
-			k = "<non-string-key>"
+			snippet := f.pretty(kvList[i])
+			if len(snippet) > 16 {
+				snippet = snippet[:16]
+			}
+			k = fmt.Sprintf("<non-string-key: %s>", snippet)
+			kvList[i] = k
 		}
 		v := kvList[i+1]
 
@@ -250,6 +257,7 @@ func (f Formatter) flatten(buf *bytes.Buffer, kvList []interface{}, continuing b
 				buf.WriteByte(' ')
 			}
 		}
+
 		buf.WriteByte('"')
 		buf.WriteString(k)
 		buf.WriteByte('"')
@@ -260,6 +268,7 @@ func (f Formatter) flatten(buf *bytes.Buffer, kvList []interface{}, continuing b
 		}
 		buf.WriteString(f.pretty(v))
 	}
+	return kvList
 }
 
 func (f Formatter) pretty(value interface{}) string {
@@ -569,13 +578,11 @@ func (f *Formatter) AddName(name string) {
 // AddValues adds key-value pairs to the set of saved values to be logged with
 // each log line.
 func (f *Formatter) AddValues(kvList []interface{}) {
-	// Three slice args forces a copy.
-	n := len(f.values)
-	f.values = append(f.values[:n:n], kvList...)
-
 	// Pre-render values, so we don't have to do it on each Info/Error call.
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
-	f.flatten(buf, f.values, false)
+	// Three slice args forces a copy.
+	n := len(f.values)
+	f.values = f.flatten(buf, append(f.values[:n:n], kvList...), false)
 	f.valuesStr = buf.String()
 }
 
