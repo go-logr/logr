@@ -580,6 +580,29 @@ func TestInfoWithCaller(t *testing.T) {
 		if cap.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
 		}
+		sink.Error(fmt.Errorf("error"), "msg")
+		_, file, line, _ = runtime.Caller(0)
+		expect = fmt.Sprintf(` "caller"={"file":%q,"line":%d} "msg"="msg" "error"="error"`, filepath.Base(file), line-1)
+		if cap.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		}
+	})
+	t.Run("LogCaller=All, LogCallerFunc=true", func(t *testing.T) {
+		thisFunc := "github.com/go-logr/logr/funcr.TestInfoWithCaller.func2"
+		cap := &capture{}
+		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: All, LogCallerFunc: true}))
+		sink.Info(0, "msg")
+		_, file, line, _ := runtime.Caller(0)
+		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d,"function":%q} "level"=0 "msg"="msg"`, filepath.Base(file), line-1, thisFunc)
+		if cap.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		}
+		sink.Error(fmt.Errorf("error"), "msg")
+		_, file, line, _ = runtime.Caller(0)
+		expect = fmt.Sprintf(` "caller"={"file":%q,"line":%d,"function":%q} "msg"="msg" "error"="error"`, filepath.Base(file), line-1, thisFunc)
+		if cap.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		}
 	})
 	t.Run("LogCaller=Info", func(t *testing.T) {
 		cap := &capture{}
@@ -587,6 +610,11 @@ func TestInfoWithCaller(t *testing.T) {
 		sink.Info(0, "msg")
 		_, file, line, _ := runtime.Caller(0)
 		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d} "level"=0 "msg"="msg"`, filepath.Base(file), line-1)
+		if cap.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		}
+		sink.Error(fmt.Errorf("error"), "msg")
+		expect = ` "msg"="msg" "error"="error"`
 		if cap.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
 		}
@@ -599,12 +627,23 @@ func TestInfoWithCaller(t *testing.T) {
 		if cap.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
 		}
+		sink.Error(fmt.Errorf("error"), "msg")
+		_, file, line, _ := runtime.Caller(0)
+		expect = fmt.Sprintf(` "caller"={"file":%q,"line":%d} "msg"="msg" "error"="error"`, filepath.Base(file), line-1)
+		if cap.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		}
 	})
 	t.Run("LogCaller=None", func(t *testing.T) {
 		cap := &capture{}
 		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: None}))
 		sink.Info(0, "msg")
 		expect := ` "level"=0 "msg"="msg"`
+		if cap.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		}
+		sink.Error(fmt.Errorf("error"), "msg")
+		expect = ` "msg"="msg" "error"="error"`
 		if cap.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
 		}
