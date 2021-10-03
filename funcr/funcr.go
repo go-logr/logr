@@ -357,6 +357,10 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 				// reflect says this field is only defined for non-exported fields.
 				continue
 			}
+			if !v.Field(i).CanInterface() {
+				// reflect isn't clear exactly what this means, but we can't use it.
+				continue
+			}
 			name := fld.Name
 			omitempty := false
 			if tag, found := fld.Tag.Lookup("json"); found {

@@ -202,10 +202,11 @@ func TestPretty(t *testing.T) {
 		{val: [4]int{9, 3, 7, 6}},
 		{
 			val: struct {
-				Int    int
-				String string
+				Int         int
+				notExported string
+				String      string
 			}{
-				93, "seventy-six",
+				93, "you should not see this", "seventy-six",
 			},
 		},
 		{val: map[string]int{}},
