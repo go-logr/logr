@@ -151,6 +151,41 @@ type TjsontagsMap struct {
 	Map6 map[string]string `json:",omitempty"`     // ignore if empty
 }
 
+type Tinnerstruct struct {
+	Inner string
+}
+type Tinnerint int
+type Tinnermap map[string]string
+type Tinnerslice []string
+
+type Tembedstruct struct {
+	Tinnerstruct
+	Outer string
+}
+
+type Tembednonstruct struct {
+	Tinnerint
+	Tinnermap
+	Tinnerslice
+}
+
+type Tinner1 Tinnerstruct
+type Tinner2 Tinnerstruct
+type Tinner3 Tinnerstruct
+type Tinner4 Tinnerstruct
+type Tinner5 Tinnerstruct
+type Tinner6 Tinnerstruct
+
+type Tembedjsontags struct {
+	Outer   string
+	Tinner1 `json:"inner1"`
+	Tinner2 `json:"-"`
+	Tinner3 `json:"-,"`
+	Tinner4 `json:"inner4,omitempty"`
+	Tinner5 `json:","`
+	Tinner6 `json:"inner6,omitempty"`
+}
+
 func TestPretty(t *testing.T) {
 	// used below
 	newStr := func(s string) *string {
@@ -392,6 +427,12 @@ func TestPretty(t *testing.T) {
 			val: TjsontagsMap{},
 			exp: `{"map1":{},"-":{},"Map5":{}}`,
 		},
+		{val: Tembedstruct{}},
+		{
+			val: Tembednonstruct{},
+			exp: `{"Tinnerint":0,"Tinnermap":{},"Tinnerslice":[]}`,
+		},
+		{val: Tembedjsontags{}},
 	}
 
 	f := NewFormatter(Options{})

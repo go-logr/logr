@@ -260,7 +260,8 @@ func (f Formatter) pretty(value interface{}) string {
 }
 
 const (
-	flagRawString = 0x1
+	flagRawString = 0x1 // do not print quotes on strings
+	flagRawStruct = 0x2 // do not print braces on structs
 )
 
 // TODO: This is not fast. Most of the overhead goes here.
@@ -350,7 +351,9 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 	case reflect.Complex128:
 		return `"` + strconv.FormatComplex(v.Complex(), 'f', -1, 128) + `"`
 	case reflect.Struct:
-		buf.WriteByte('{')
+		if flags&flagRawStruct == 0 {
+			buf.WriteByte('{')
+		}
 		for i := 0; i < t.NumField(); i++ {
 			fld := t.Field(i)
 			if fld.PkgPath != "" {
@@ -361,7 +364,7 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 				// reflect isn't clear exactly what this means, but we can't use it.
 				continue
 			}
-			name := fld.Name
+			name := ""
 			omitempty := false
 			if tag, found := fld.Tag.Lookup("json"); found {
 				if tag == "-" {
@@ -385,13 +388,22 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 			if i > 0 {
 				buf.WriteByte(',')
 			}
+			if fld.Anonymous && fld.Type.Kind() == reflect.Struct && name == "" {
+				buf.WriteString(f.prettyWithFlags(v.Field(i).Interface(), flags|flagRawStruct))
+				continue
+			}
+			if name == "" {
+				name = fld.Name
+			}
 			buf.WriteByte('"')
 			buf.WriteString(name)
 			buf.WriteByte('"')
 			buf.WriteByte(':')
 			buf.WriteString(f.pretty(v.Field(i).Interface()))
 		}
-		buf.WriteByte('}')
+		if flags&flagRawStruct == 0 {
+			buf.WriteByte('}')
+		}
 		return buf.String()
 	case reflect.Slice, reflect.Array:
 		buf.WriteByte('[')
