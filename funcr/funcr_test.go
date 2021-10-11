@@ -98,6 +98,11 @@ func TestPretty(t *testing.T) {
 		},
 		{val: ptrint(93)},
 		{val: ptrstr("pstrval")},
+		{val: []int{}},
+		{
+			val: []int(nil),
+			exp: `[]`,
+		},
 		{val: []int{9, 3, 7, 6}},
 		{val: [4]int{9, 3, 7, 6}},
 		{
@@ -107,6 +112,11 @@ func TestPretty(t *testing.T) {
 			}{
 				93, "seventy-six",
 			},
+		},
+		{val: map[string]int{}},
+		{
+			val: map[string]int(nil),
+			exp: `{}`,
 		},
 		{
 			val: map[string]int{
