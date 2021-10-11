@@ -238,14 +238,18 @@ func TestFlatten(t *testing.T) {
 	fJSON := NewFormatterJSON(Options{})
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			r := fKV.flatten(tc.kv...)
-			if r != tc.expectKV {
-				t.Errorf("expected %q, got %q", tc.expectKV, r)
-			}
-			r = fJSON.flatten(tc.kv...)
-			if r != tc.expectJSON {
-				t.Errorf("expected %q, got %q", tc.expectJSON, r)
-			}
+			t.Run("KV", func(t *testing.T) {
+				r := fKV.flatten(tc.kv...)
+				if r != tc.expectKV {
+					t.Errorf("expected %q, got %q", tc.expectKV, r)
+				}
+			})
+			t.Run("JSON", func(t *testing.T) {
+				r := fJSON.flatten(tc.kv...)
+				if r != tc.expectJSON {
+					t.Errorf("expected %q, got %q", tc.expectJSON, r)
+				}
+			})
 		})
 	}
 }
