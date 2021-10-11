@@ -15,16 +15,23 @@ limitations under the License.
 */
 
 // Package funcr implements formatting of structured log messages and
-// optionally captures the call site.
+// optionally captures the call site and timestamp.
 //
 // The simplest way to use it is via its implementation of a
 // github.com/go-logr/logr.LogSink with output through an arbitrary
-// "write" function. Alternatively, funcr can also be embedded inside
-// a custom LogSink implementation. This is useful when the LogSink
-// needs to implement additional methods.
+// "write" function.  See New and NewJSON for details.
+//
+// Custom LogSinks
+//
+// For users who need more control, a funcr.Formatter can be embedded inside
+// your own custom LogSink implementation. This is useful when the LogSink
+// needs to implement additional methods, for example.
+//
+// Formatting
 //
 // This will respect logr.Marshaler, fmt.Stringer, and error interfaces for
-// values which are being logged.
+// values which are being logged.  When rendering a struct, funcr will use Go's
+// standard JSON tags (all except "string").
 package funcr
 
 import (
