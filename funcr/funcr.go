@@ -15,16 +15,23 @@ limitations under the License.
 */
 
 // Package funcr implements formatting of structured log messages and
-// optionally captures the call site.
+// optionally captures the call site and timestamp.
 //
 // The simplest way to use it is via its implementation of a
 // github.com/go-logr/logr.LogSink with output through an arbitrary
-// "write" function. Alternatively, funcr can also be embedded inside
-// a custom LogSink implementation. This is useful when the LogSink
-// needs to implement additional methods.
+// "write" function.  See New and NewJSON for details.
+//
+// Custom LogSinks
+//
+// For users who need more control, a funcr.Formatter can be embedded inside
+// your own custom LogSink implementation. This is useful when the LogSink
+// needs to implement additional methods, for example.
+//
+// Formatting
 //
 // This will respect logr.Marshaler, fmt.Stringer, and error interfaces for
-// values which are being logged.
+// values which are being logged.  When rendering a struct, funcr will use Go's
+// standard JSON tags (all except "string").
 package funcr
 
 import (
@@ -260,7 +267,8 @@ func (f Formatter) pretty(value interface{}) string {
 }
 
 const (
-	flagRawString = 0x1
+	flagRawString = 0x1 // do not print quotes on strings
+	flagRawStruct = 0x2 // do not print braces on structs
 )
 
 // TODO: This is not fast. Most of the overhead goes here.
@@ -350,31 +358,59 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 	case reflect.Complex128:
 		return `"` + strconv.FormatComplex(v.Complex(), 'f', -1, 128) + `"`
 	case reflect.Struct:
-		buf.WriteByte('{')
+		if flags&flagRawStruct == 0 {
+			buf.WriteByte('{')
+		}
 		for i := 0; i < t.NumField(); i++ {
 			fld := t.Field(i)
 			if fld.PkgPath != "" {
 				// reflect says this field is only defined for non-exported fields.
 				continue
 			}
-			if i > 0 {
-				buf.WriteByte(',')
+			if !v.Field(i).CanInterface() {
+				// reflect isn't clear exactly what this means, but we can't use it.
+				continue
 			}
-			buf.WriteByte('"')
-			name := fld.Name
+			name := ""
+			omitempty := false
 			if tag, found := fld.Tag.Lookup("json"); found {
+				if tag == "-" {
+					continue
+				}
 				if comma := strings.Index(tag, ","); comma != -1 {
-					name = tag[:comma]
+					if n := tag[:comma]; n != "" {
+						name = n
+					}
+					rest := tag[comma:]
+					if strings.Contains(rest, ",omitempty,") || strings.HasSuffix(rest, ",omitempty") {
+						omitempty = true
+					}
 				} else {
 					name = tag
 				}
 			}
+			if omitempty && isEmpty(v.Field(i)) {
+				continue
+			}
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+			if fld.Anonymous && fld.Type.Kind() == reflect.Struct && name == "" {
+				buf.WriteString(f.prettyWithFlags(v.Field(i).Interface(), flags|flagRawStruct))
+				continue
+			}
+			if name == "" {
+				name = fld.Name
+			}
+			buf.WriteByte('"')
 			buf.WriteString(name)
 			buf.WriteByte('"')
 			buf.WriteByte(':')
 			buf.WriteString(f.pretty(v.Field(i).Interface()))
 		}
-		buf.WriteByte('}')
+		if flags&flagRawStruct == 0 {
+			buf.WriteByte('}')
+		}
 		return buf.String()
 	case reflect.Slice, reflect.Array:
 		buf.WriteByte('[')
@@ -413,6 +449,26 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 		return f.pretty(v.Elem().Interface())
 	}
 	return fmt.Sprintf(`"<unhandled-%s>"`, t.Kind().String())
+}
+
+func isEmpty(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return v.Len() == 0
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() == 0
+	case reflect.Complex64, reflect.Complex128:
+		return v.Complex() == 0
+	case reflect.Interface, reflect.Ptr:
+		return v.IsNil()
+	}
+	return false
 }
 
 type callerID struct {

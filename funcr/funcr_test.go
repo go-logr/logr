@@ -61,7 +61,137 @@ func (t Tstringer) Error() string {
 	return "Error(): you should not see this"
 }
 
+type TjsontagsString struct {
+	String1 string `json:"string1"`           // renamed
+	String2 string `json:"-"`                 // ignored
+	String3 string `json:"-,"`                // named "-"
+	String4 string `json:"string4,omitempty"` // renamed, ignore if empty
+	String5 string `json:","`                 // no-op
+	String6 string `json:",omitempty"`        // ignore if empty
+}
+
+type TjsontagsBool struct {
+	Bool1 bool `json:"bool1"`           // renamed
+	Bool2 bool `json:"-"`               // ignored
+	Bool3 bool `json:"-,"`              // named "-"
+	Bool4 bool `json:"bool4,omitempty"` // renamed, ignore if empty
+	Bool5 bool `json:","`               // no-op
+	Bool6 bool `json:",omitempty"`      // ignore if empty
+}
+
+type TjsontagsInt struct {
+	Int1 int `json:"int1"`           // renamed
+	Int2 int `json:"-"`              // ignored
+	Int3 int `json:"-,"`             // named "-"
+	Int4 int `json:"int4,omitempty"` // renamed, ignore if empty
+	Int5 int `json:","`              // no-op
+	Int6 int `json:",omitempty"`     // ignore if empty
+}
+
+type TjsontagsUint struct {
+	Uint1 uint `json:"uint1"`           // renamed
+	Uint2 uint `json:"-"`               // ignored
+	Uint3 uint `json:"-,"`              // named "-"
+	Uint4 uint `json:"uint4,omitempty"` // renamed, ignore if empty
+	Uint5 uint `json:","`               // no-op
+	Uint6 uint `json:",omitempty"`      // ignore if empty
+}
+
+type TjsontagsFloat struct {
+	Float1 float64 `json:"float1"`           // renamed
+	Float2 float64 `json:"-"`                // ignored
+	Float3 float64 `json:"-,"`               // named "-"
+	Float4 float64 `json:"float4,omitempty"` // renamed, ignore if empty
+	Float5 float64 `json:","`                // no-op
+	Float6 float64 `json:",omitempty"`       // ignore if empty
+}
+
+type TjsontagsComplex struct {
+	Complex1 complex128 `json:"complex1"`           // renamed
+	Complex2 complex128 `json:"-"`                  // ignored
+	Complex3 complex128 `json:"-,"`                 // named "-"
+	Complex4 complex128 `json:"complex4,omitempty"` // renamed, ignore if empty
+	Complex5 complex128 `json:","`                  // no-op
+	Complex6 complex128 `json:",omitempty"`         // ignore if empty
+}
+
+type TjsontagsPtr struct {
+	Ptr1 *string `json:"ptr1"`           // renamed
+	Ptr2 *string `json:"-"`              // ignored
+	Ptr3 *string `json:"-,"`             // named "-"
+	Ptr4 *string `json:"ptr4,omitempty"` // renamed, ignore if empty
+	Ptr5 *string `json:","`              // no-op
+	Ptr6 *string `json:",omitempty"`     // ignore if empty
+}
+
+type TjsontagsArray struct {
+	Array1 [2]string `json:"array1"`           // renamed
+	Array2 [2]string `json:"-"`                // ignored
+	Array3 [2]string `json:"-,"`               // named "-"
+	Array4 [2]string `json:"array4,omitempty"` // renamed, ignore if empty
+	Array5 [2]string `json:","`                // no-op
+	Array6 [2]string `json:",omitempty"`       // ignore if empty
+}
+
+type TjsontagsSlice struct {
+	Slice1 []string `json:"slice1"`           // renamed
+	Slice2 []string `json:"-"`                // ignored
+	Slice3 []string `json:"-,"`               // named "-"
+	Slice4 []string `json:"slice4,omitempty"` // renamed, ignore if empty
+	Slice5 []string `json:","`                // no-op
+	Slice6 []string `json:",omitempty"`       // ignore if empty
+}
+
+type TjsontagsMap struct {
+	Map1 map[string]string `json:"map1"`           // renamed
+	Map2 map[string]string `json:"-"`              // ignored
+	Map3 map[string]string `json:"-,"`             // named "-"
+	Map4 map[string]string `json:"map4,omitempty"` // renamed, ignore if empty
+	Map5 map[string]string `json:","`              // no-op
+	Map6 map[string]string `json:",omitempty"`     // ignore if empty
+}
+
+type Tinnerstruct struct {
+	Inner string
+}
+type Tinnerint int
+type Tinnermap map[string]string
+type Tinnerslice []string
+
+type Tembedstruct struct {
+	Tinnerstruct
+	Outer string
+}
+
+type Tembednonstruct struct {
+	Tinnerint
+	Tinnermap
+	Tinnerslice
+}
+
+type Tinner1 Tinnerstruct
+type Tinner2 Tinnerstruct
+type Tinner3 Tinnerstruct
+type Tinner4 Tinnerstruct
+type Tinner5 Tinnerstruct
+type Tinner6 Tinnerstruct
+
+type Tembedjsontags struct {
+	Outer   string
+	Tinner1 `json:"inner1"`
+	Tinner2 `json:"-"`
+	Tinner3 `json:"-,"`
+	Tinner4 `json:"inner4,omitempty"`
+	Tinner5 `json:","`
+	Tinner6 `json:"inner6,omitempty"`
+}
+
 func TestPretty(t *testing.T) {
+	// used below
+	newStr := func(s string) *string {
+		return &s
+	}
+
 	cases := []struct {
 		val interface{}
 		exp string // used in cases where JSON can't handle it
@@ -107,10 +237,11 @@ func TestPretty(t *testing.T) {
 		{val: [4]int{9, 3, 7, 6}},
 		{
 			val: struct {
-				Int    int
-				String string
+				Int         int
+				notExported string
+				String      string
 			}{
-				93, "seventy-six",
+				93, "you should not see this", "seventy-six",
 			},
 		},
 		{val: map[string]int{}},
@@ -176,6 +307,132 @@ func TestPretty(t *testing.T) {
 			val: fmt.Errorf("error"),
 			exp: `"error"`,
 		},
+		{
+			val: TjsontagsString{
+				String1: "v1",
+				String2: "v2",
+				String3: "v3",
+				String4: "v4",
+				String5: "v5",
+				String6: "v6",
+			},
+		},
+		{val: TjsontagsString{}},
+		{
+			val: TjsontagsBool{
+				Bool1: true,
+				Bool2: true,
+				Bool3: true,
+				Bool4: true,
+				Bool5: true,
+				Bool6: true,
+			},
+		},
+		{val: TjsontagsBool{}},
+		{
+			val: TjsontagsInt{
+				Int1: 1,
+				Int2: 2,
+				Int3: 3,
+				Int4: 4,
+				Int5: 5,
+				Int6: 6,
+			},
+		},
+		{val: TjsontagsInt{}},
+		{
+			val: TjsontagsUint{
+				Uint1: 1,
+				Uint2: 2,
+				Uint3: 3,
+				Uint4: 4,
+				Uint5: 5,
+				Uint6: 6,
+			},
+		},
+		{val: TjsontagsUint{}},
+		{
+			val: TjsontagsFloat{
+				Float1: 1.1,
+				Float2: 2.2,
+				Float3: 3.3,
+				Float4: 4.4,
+				Float5: 5.5,
+				Float6: 6.6,
+			},
+		},
+		{val: TjsontagsFloat{}},
+		{
+			val: TjsontagsComplex{
+				Complex1: 1i,
+				Complex2: 2i,
+				Complex3: 3i,
+				Complex4: 4i,
+				Complex5: 5i,
+				Complex6: 6i,
+			},
+			exp: `{"complex1":"(0+1i)","-":"(0+3i)","complex4":"(0+4i)","Complex5":"(0+5i)","Complex6":"(0+6i)"}`,
+		},
+		{
+			val: TjsontagsComplex{},
+			exp: `{"complex1":"(0+0i)","-":"(0+0i)","Complex5":"(0+0i)"}`,
+		},
+		{
+			val: TjsontagsPtr{
+				Ptr1: newStr("1"),
+				Ptr2: newStr("2"),
+				Ptr3: newStr("3"),
+				Ptr4: newStr("4"),
+				Ptr5: newStr("5"),
+				Ptr6: newStr("6"),
+			},
+		},
+		{val: TjsontagsPtr{}},
+		{
+			val: TjsontagsArray{
+				Array1: [2]string{"v1", "v1"},
+				Array2: [2]string{"v2", "v2"},
+				Array3: [2]string{"v3", "v3"},
+				Array4: [2]string{"v4", "v4"},
+				Array5: [2]string{"v5", "v5"},
+				Array6: [2]string{"v6", "v6"},
+			},
+		},
+		{val: TjsontagsArray{}},
+		{
+			val: TjsontagsSlice{
+				Slice1: []string{"v1", "v1"},
+				Slice2: []string{"v2", "v2"},
+				Slice3: []string{"v3", "v3"},
+				Slice4: []string{"v4", "v4"},
+				Slice5: []string{"v5", "v5"},
+				Slice6: []string{"v6", "v6"},
+			},
+		},
+		{
+			val: TjsontagsSlice{},
+			exp: `{"slice1":[],"-":[],"Slice5":[]}`,
+		},
+		{
+			val: TjsontagsMap{
+				Map1: map[string]string{"k1": "v1"},
+				Map2: map[string]string{"k2": "v2"},
+				Map3: map[string]string{"k3": "v3"},
+				Map4: map[string]string{"k4": "v4"},
+				Map5: map[string]string{"k5": "v5"},
+				Map6: map[string]string{"k6": "v6"},
+			},
+		},
+		{
+			val: TjsontagsMap{},
+			exp: `{"map1":{},"-":{},"Map5":{}}`,
+		},
+		{val: Tembedstruct{}},
+		{
+			val: Tembednonstruct{},
+			exp: `{"Tinnerint":0,"Tinnermap":{},"Tinnerslice":[]}`,
+		},
+		{val: Tembedjsontags{}},
 	}
 
 	f := NewFormatter(Options{})
@@ -192,7 +449,7 @@ func TestPretty(t *testing.T) {
 			want = string(jb)
 		}
 		if ours != want {
-			t.Errorf("[%d]: expected %q, got %q", i, want, ours)
+			t.Errorf("[%d]:\n\texpected %q\n\tgot      %q", i, want, ours)
 		}
 	}
 }
