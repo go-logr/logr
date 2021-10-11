@@ -23,6 +23,28 @@ import (
 	"github.com/go-logr/logr/funcr"
 )
 
+func ExampleNew() {
+	var log logr.Logger = funcr.New(func(prefix, args string) {
+		fmt.Println(prefix, args)
+	}, funcr.Options{})
+
+	log = log.WithName("MyLogger")
+	log = log.WithValues("savedKey", "savedValue")
+	log.Info("the message", "key", "value")
+	// Output: MyLogger "level"=0 "msg"="the message" "savedKey"="savedValue" "key"="value"
+}
+
+func ExampleNewJSON() {
+	var log logr.Logger = funcr.NewJSON(func(obj string) {
+		fmt.Println(obj)
+	}, funcr.Options{})
+
+	log = log.WithName("MyLogger")
+	log = log.WithValues("savedKey", "savedValue")
+	log.Info("the message", "key", "value")
+	// Output: {"logger":"MyLogger","level":0,"msg":"the message","savedKey":"savedValue","key":"value"}
+}
+
 func ExampleUnderlier() {
 	var log logr.Logger = funcr.New(func(prefix, args string) {
 		fmt.Println(prefix, args)
