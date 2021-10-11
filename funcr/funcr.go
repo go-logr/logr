@@ -197,16 +197,16 @@ func (f Formatter) render(builtins, args []interface{}) string {
 	// Empirically bytes.Buffer is faster than strings.Builder for this.
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
 	if f.outputFormat == outputJSON {
-		buf.WriteRune('{')
+		buf.WriteByte('{')
 	}
 	f.flatten(buf, builtins, false)
 	continuing := len(builtins) > 0
 	if len(f.valuesStr) > 0 {
 		if continuing {
 			if f.outputFormat == outputJSON {
-				buf.WriteRune(',')
+				buf.WriteByte(',')
 			} else {
-				buf.WriteRune(' ')
+				buf.WriteByte(' ')
 			}
 		}
 		continuing = true
@@ -214,7 +214,7 @@ func (f Formatter) render(builtins, args []interface{}) string {
 	}
 	f.flatten(buf, args, continuing)
 	if f.outputFormat == outputJSON {
-		buf.WriteRune('}')
+		buf.WriteByte('}')
 	}
 	return buf.String()
 }
@@ -236,20 +236,20 @@ func (f Formatter) flatten(buf *bytes.Buffer, kvList []interface{}, continuing b
 
 		if i > 0 || continuing {
 			if f.outputFormat == outputJSON {
-				buf.WriteRune(',')
+				buf.WriteByte(',')
 			} else {
 				// In theory the format could be something we don't understand.  In
 				// practice, we control it, so it won't
-				buf.WriteRune(' ')
+				buf.WriteByte(' ')
 			}
 		}
-		buf.WriteRune('"')
+		buf.WriteByte('"')
 		buf.WriteString(k)
-		buf.WriteRune('"')
+		buf.WriteByte('"')
 		if f.outputFormat == outputJSON {
-			buf.WriteRune(':')
+			buf.WriteByte(':')
 		} else {
-			buf.WriteRune('=')
+			buf.WriteByte('=')
 		}
 		buf.WriteString(f.pretty(v))
 	}
@@ -350,7 +350,7 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 	case reflect.Complex128:
 		return `"` + strconv.FormatComplex(v.Complex(), 'f', -1, 128) + `"`
 	case reflect.Struct:
-		buf.WriteRune('{')
+		buf.WriteByte('{')
 		for i := 0; i < t.NumField(); i++ {
 			fld := t.Field(i)
 			if fld.PkgPath != "" {
@@ -358,9 +358,9 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 				continue
 			}
 			if i > 0 {
-				buf.WriteRune(',')
+				buf.WriteByte(',')
 			}
-			buf.WriteRune('"')
+			buf.WriteByte('"')
 			name := fld.Name
 			if tag, found := fld.Tag.Lookup("json"); found {
 				if comma := strings.Index(tag, ","); comma != -1 {
@@ -370,41 +370,41 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 				}
 			}
 			buf.WriteString(name)
-			buf.WriteRune('"')
-			buf.WriteRune(':')
+			buf.WriteByte('"')
+			buf.WriteByte(':')
 			buf.WriteString(f.pretty(v.Field(i).Interface()))
 		}
-		buf.WriteRune('}')
+		buf.WriteByte('}')
 		return buf.String()
 	case reflect.Slice, reflect.Array:
-		buf.WriteRune('[')
+		buf.WriteByte('[')
 		for i := 0; i < v.Len(); i++ {
 			if i > 0 {
-				buf.WriteRune(',')
+				buf.WriteByte(',')
 			}
 			e := v.Index(i)
 			buf.WriteString(f.pretty(e.Interface()))
 		}
-		buf.WriteRune(']')
+		buf.WriteByte(']')
 		return buf.String()
 	case reflect.Map:
-		buf.WriteRune('{')
+		buf.WriteByte('{')
 		// This does not sort the map keys, for best perf.
 		it := v.MapRange()
 		i := 0
 		for it.Next() {
 			if i > 0 {
-				buf.WriteRune(',')
+				buf.WriteByte(',')
 			}
 			// JSON only does string keys.
-			buf.WriteRune('"')
+			buf.WriteByte('"')
 			buf.WriteString(f.prettyWithFlags(it.Key().Interface(), flagRawString))
-			buf.WriteRune('"')
-			buf.WriteRune(':')
+			buf.WriteByte('"')
+			buf.WriteByte(':')
 			buf.WriteString(f.pretty(it.Value().Interface()))
 			i++
 		}
-		buf.WriteRune('}')
+		buf.WriteByte('}')
 		return buf.String()
 	case reflect.Ptr, reflect.Interface:
 		if v.IsNil() {
