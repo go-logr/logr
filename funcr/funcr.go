@@ -168,14 +168,11 @@ func NewFormatterJSON(opts Options) Formatter {
 
 func newFormatter(opts Options, outfmt outputFormat) Formatter {
 	f := Formatter{
-		outputFormat:  outfmt,
-		prefix:        "",
-		values:        nil,
-		depth:         0,
-		logCaller:     opts.LogCaller,
-		logCallerFunc: opts.LogCallerFunc,
-		logTimestamp:  opts.LogTimestamp,
-		verbosity:     opts.Verbosity,
+		outputFormat: outfmt,
+		prefix:       "",
+		values:       nil,
+		depth:        0,
+		opts:         opts,
 	}
 	return f
 }
@@ -184,15 +181,12 @@ func newFormatter(opts Options, outfmt outputFormat) Formatter {
 // implementation. It should be constructed with NewFormatter. Some of
 // its methods directly implement logr.LogSink.
 type Formatter struct {
-	outputFormat  outputFormat
-	prefix        string
-	values        []interface{}
-	valuesStr     string
-	depth         int
-	logCaller     MessageClass
-	logCallerFunc bool
-	logTimestamp  bool
-	verbosity     int
+	outputFormat outputFormat
+	prefix       string
+	values       []interface{}
+	valuesStr    string
+	depth        int
+	opts         Options
 }
 
 // outputFormat indicates which outputFormat to use.
@@ -490,7 +484,7 @@ func (f Formatter) caller() callerID {
 		return callerID{"<unknown>", 0, ""}
 	}
 	fn := ""
-	if f.logCallerFunc {
+	if f.opts.LogCallerFunc {
 		if fp := runtime.FuncForPC(pc); fp != nil {
 			fn = fp.Name()
 		}
@@ -508,7 +502,7 @@ func (f *Formatter) Init(info logr.RuntimeInfo) {
 
 // Enabled checks whether an info message at the given level should be logged.
 func (f Formatter) Enabled(level int) bool {
-	return level <= f.verbosity
+	return level <= f.opts.Verbosity
 }
 
 // GetDepth returns the current depth of this Formatter.  This is useful for
@@ -527,10 +521,10 @@ func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (pref
 		args = append(args, "logger", prefix)
 		prefix = ""
 	}
-	if f.logTimestamp {
+	if f.opts.LogTimestamp {
 		args = append(args, "ts", time.Now().Format(timestampFmt))
 	}
-	if f.logCaller == All || f.logCaller == Info {
+	if policy := f.opts.LogCaller; policy == All || policy == Info {
 		args = append(args, "caller", f.caller())
 	}
 	args = append(args, "level", level, "msg", msg)
@@ -547,10 +541,10 @@ func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (pre
 		args = append(args, "logger", prefix)
 		prefix = ""
 	}
-	if f.logTimestamp {
+	if f.opts.LogTimestamp {
 		args = append(args, "ts", time.Now().Format(timestampFmt))
 	}
-	if f.logCaller == All || f.logCaller == Error {
+	if policy := f.opts.LogCaller; policy == All || policy == Error {
 		args = append(args, "caller", f.caller())
 	}
 	args = append(args, "msg", msg)
