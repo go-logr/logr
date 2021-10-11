@@ -85,6 +85,10 @@ type Options struct {
 	// This has some overhead, so some users might not want it.
 	LogCaller MessageClass
 
+	// LogCallerFunc tells funcr to also log the calling function name.  This
+	// has no effect if caller logging is not enabled (see Options.LogCaller).
+	LogCallerFunc bool
+
 	// LogTimestamp tells funcr to add a "ts" key to log lines.  This has some
 	// overhead, so some users might not want it.
 	LogTimestamp bool
@@ -164,13 +168,14 @@ func NewFormatterJSON(opts Options) Formatter {
 
 func newFormatter(opts Options, outfmt outputFormat) Formatter {
 	f := Formatter{
-		outputFormat: outfmt,
-		prefix:       "",
-		values:       nil,
-		depth:        0,
-		logCaller:    opts.LogCaller,
-		logTimestamp: opts.LogTimestamp,
-		verbosity:    opts.Verbosity,
+		outputFormat:  outfmt,
+		prefix:        "",
+		values:        nil,
+		depth:         0,
+		logCaller:     opts.LogCaller,
+		logCallerFunc: opts.LogCallerFunc,
+		logTimestamp:  opts.LogTimestamp,
+		verbosity:     opts.Verbosity,
 	}
 	return f
 }
@@ -179,14 +184,15 @@ func newFormatter(opts Options, outfmt outputFormat) Formatter {
 // implementation. It should be constructed with NewFormatter. Some of
 // its methods directly implement logr.LogSink.
 type Formatter struct {
-	outputFormat outputFormat
-	prefix       string
-	values       []interface{}
-	valuesStr    string
-	depth        int
-	logCaller    MessageClass
-	logTimestamp bool
-	verbosity    int
+	outputFormat  outputFormat
+	prefix        string
+	values        []interface{}
+	valuesStr     string
+	depth         int
+	logCaller     MessageClass
+	logCallerFunc bool
+	logTimestamp  bool
+	verbosity     int
 }
 
 // outputFormat indicates which outputFormat to use.
@@ -474,15 +480,23 @@ func isEmpty(v reflect.Value) bool {
 type callerID struct {
 	File string `json:"file"`
 	Line int    `json:"line"`
+	Func string `json:"function,omitempty"`
 }
 
 func (f Formatter) caller() callerID {
 	// +1 for this frame, +1 for Info/Error.
-	_, file, line, ok := runtime.Caller(f.depth + 2)
+	pc, file, line, ok := runtime.Caller(f.depth + 2)
 	if !ok {
-		return callerID{"<unknown>", 0}
+		return callerID{"<unknown>", 0, ""}
 	}
-	return callerID{filepath.Base(file), line}
+	fn := ""
+	if f.logCallerFunc {
+		if fp := runtime.FuncForPC(pc); fp != nil {
+			fn = fp.Name()
+		}
+	}
+
+	return callerID{filepath.Base(file), line, fn}
 }
 
 // Init configures this Formatter from runtime info, such as the call depth
