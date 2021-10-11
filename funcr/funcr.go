@@ -73,8 +73,9 @@ type Options struct {
 	// overhead, so some users might not want it.
 	LogTimestamp bool
 
-	// Verbosity tells funcr which V logs to be write.  Higher values enable
-	// more logs.
+	// Verbosity tells funcr which V logs to produce.  Higher values enable
+	// more logs.  Info logs at or below this level will be written, while logs
+	// above this level will be discarded.
 	Verbosity int
 }
 
