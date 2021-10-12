@@ -253,7 +253,7 @@ func (f Formatter) flatten(buf *bytes.Buffer, kvList []interface{}, continuing b
 				buf.WriteByte(',')
 			} else {
 				// In theory the format could be something we don't understand.  In
-				// practice, we control it, so it won't
+				// practice, we control it, so it won't be.
 				buf.WriteByte(' ')
 			}
 		}
@@ -520,8 +520,8 @@ func (f Formatter) GetDepth() int {
 	return f.depth
 }
 
-// FormatInfo flattens an Info log message into strings.
-// The prefix will be empty when no names were set, or when the output is
+// FormatInfo renders an Info log message into strings.  The prefix will be
+// empty when no names were set (via AddNames), or when the output is
 // configured for JSON.
 func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (prefix, argsStr string) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
@@ -540,8 +540,8 @@ func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (pref
 	return prefix, f.render(args, kvList)
 }
 
-// FormatError flattens an Error log message into strings.
-// The prefix will be empty when no names were set,  or when the output is
+// FormatError renders an Error log message into strings.  The prefix will be
+// empty when no names were set (via AddNames),  or when the output is
 // configured for JSON.
 func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (prefix, argsStr string) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
