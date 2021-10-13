@@ -675,7 +675,8 @@ func (f *Formatter) AddName(name string) {
 func (f *Formatter) AddValues(kvList []interface{}) {
 	// Three slice args forces a copy.
 	n := len(f.values)
-	vals := append(f.values[:n:n], kvList...)
+	vals := f.values[:n:n]
+	vals = append(vals, kvList...)
 	if hook := f.opts.RenderValuesHook; hook != nil {
 		vals = hook(f.sanitize(vals))
 	}
