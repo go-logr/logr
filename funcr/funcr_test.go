@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 
@@ -433,6 +434,10 @@ func TestPretty(t *testing.T) {
 			exp: `{"Tinnerint":0,"Tinnermap":{},"Tinnerslice":[]}`,
 		},
 		{val: Tembedjsontags{}},
+		{
+			val: PseudoStruct(makeKV("f1", 1, "f2", true, "f3", []int{})),
+			exp: `{"f1":1,"f2":true,"f3":[]}`,
+		},
 	}
 
 	f := NewFormatter(Options{})
@@ -485,6 +490,13 @@ func TestRender(t *testing.T) {
 		expectKV:   `"int1"=1 "int2"=2 "str1"="ABC" "str2"="DEF" "bool1"=true "bool2"=false`,
 		expectJSON: `{"int1":1,"int2":2,"str1":"ABC","str2":"DEF","bool1":true,"bool2":false}`,
 	}, {
+		name:       "pseudo structs",
+		builtins:   makeKV("int", PseudoStruct(makeKV("intsub", 1))),
+		values:     makeKV("str", PseudoStruct(makeKV("strsub", "2"))),
+		args:       makeKV("bool", PseudoStruct(makeKV("boolsub", true))),
+		expectKV:   `"int"={"intsub":1} "str"={"strsub":"2"} "bool"={"boolsub":true}`,
+		expectJSON: `{"int":{"intsub":1},"str":{"strsub":"2"},"bool":{"boolsub":true}}`,
+	}, {
 		name:       "missing value",
 		builtins:   makeKV("builtin"),
 		values:     makeKV("value"),
@@ -531,6 +543,47 @@ func TestRender(t *testing.T) {
 			t.Run("JSON", func(t *testing.T) {
 				test(t, NewFormatterJSON(Options{}), tc.expectJSON)
 			})
+		})
+	}
+}
+
+func TestSanitize(t *testing.T) {
+	testCases := []struct {
+		name   string
+		kv     []interface{}
+		expect []interface{}
+	}{{
+		name:   "empty",
+		kv:     []interface{}{},
+		expect: []interface{}{},
+	}, {
+		name:   "already sane",
+		kv:     makeKV("int", 1, "str", "ABC", "bool", true),
+		expect: makeKV("int", 1, "str", "ABC", "bool", true),
+	}, {
+		name:   "missing value",
+		kv:     makeKV("key"),
+		expect: makeKV("key", "<no-value>"),
+	}, {
+		name:   "non-string key int",
+		kv:     makeKV(123, "val"),
+		expect: makeKV("<non-string-key: 123>", "val"),
+	}, {
+		name: "non-string key struct",
+		kv: makeKV(struct {
+			F1 string
+			F2 int
+		}{"f1", 8675309}, "val"),
+		expect: makeKV(`<non-string-key: {"F1":"f1","F2":>`, "val"),
+	}}
+
+	f := NewFormatterJSON(Options{})
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := f.sanitize(tc.kv)
+			if !reflect.DeepEqual(r, tc.expect) {
+				t.Errorf("wrong output:\nexpected %q\n     got %q", tc.expect, r)
+			}
 		})
 	}
 }

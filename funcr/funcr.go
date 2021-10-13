@@ -97,6 +97,29 @@ type Options struct {
 	// more logs.  Info logs at or below this level will be written, while logs
 	// above this level will be discarded.
 	Verbosity int
+
+	// RenderBuiltinsHook allows users to mutate the list of key-value pairs
+	// while a log line is being rendered.  The kvList argument follows logr
+	// conventions - each pair of slice elements is comprised of a string key
+	// and an arbitrary value (verified and sanitized before calling this
+	// hook).  The value returned must follow the same conventions.  This hook
+	// can be used to audit or modify logged data.  For example, you might want
+	// to prefix all of funcr's built-in keys with some string.  This hook is
+	// only called for built-in (provided by funcr itself) key-value pairs.
+	// Equivalent hooks are offered for key-value pairs saved via
+	// logr.Logger.WithValues or Formatter.AddValues (see RenderValuesHook) and
+	// for user-provided pairs (see RenderArgsHook).
+	RenderBuiltinsHook func(kvList []interface{}) []interface{}
+
+	// RenderValuesHook is the same as RenderBuiltinsHook, except that it is
+	// only called for key-value pairs saved via logr.Logger.WithValues.  See
+	// RenderBuiltinsHook for more details.
+	RenderValuesHook func(kvList []interface{}) []interface{}
+
+	// RenderArgsHook is the same as RenderBuiltinsHook, except that it is only
+	// called for key-value pairs passed directly to Info and Error.  See
+	// RenderBuiltinsHook for more details.
+	RenderArgsHook func(kvList []interface{}) []interface{}
 }
 
 // MessageClass indicates which category or categories of messages to consider.
@@ -199,14 +222,21 @@ const (
 	outputJSON
 )
 
-// render produces a log-line, ready to use.
+// PseudoStruct is a list of key-value pairs that gets logged as a struct.
+type PseudoStruct []interface{}
+
+// render produces a log line, ready to use.
 func (f Formatter) render(builtins, args []interface{}) string {
 	// Empirically bytes.Buffer is faster than strings.Builder for this.
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
 	if f.outputFormat == outputJSON {
 		buf.WriteByte('{')
 	}
-	f.flatten(buf, builtins, false)
+	vals := builtins
+	if hook := f.opts.RenderBuiltinsHook; hook != nil {
+		vals = hook(f.sanitize(vals))
+	}
+	f.flatten(buf, vals, false)
 	continuing := len(builtins) > 0
 	if len(f.valuesStr) > 0 {
 		if continuing {
@@ -219,7 +249,11 @@ func (f Formatter) render(builtins, args []interface{}) string {
 		continuing = true
 		buf.WriteString(f.valuesStr)
 	}
-	f.flatten(buf, args, continuing)
+	vals = args
+	if hook := f.opts.RenderArgsHook; hook != nil {
+		vals = hook(f.sanitize(vals))
+	}
+	f.flatten(buf, vals, continuing)
 	if f.outputFormat == outputJSON {
 		buf.WriteByte('}')
 	}
@@ -233,17 +267,15 @@ func (f Formatter) render(builtins, args []interface{}) string {
 // ensures that there is a value for every key (adding a value if needed) and
 // that each key is a string (substituting a key if needed).
 func (f Formatter) flatten(buf *bytes.Buffer, kvList []interface{}, continuing bool) []interface{} {
+	// This logic overlaps with sanitize() but saves one type-cast per key,
+	// which can be measurable.
 	if len(kvList)%2 != 0 {
-		kvList = append(kvList, "<no-value>")
+		kvList = append(kvList, noValue)
 	}
 	for i := 0; i < len(kvList); i += 2 {
 		k, ok := kvList[i].(string)
 		if !ok {
-			snippet := f.pretty(kvList[i])
-			if len(snippet) > 16 {
-				snippet = snippet[:16]
-			}
-			k = fmt.Sprintf("<non-string-key: %s>", snippet)
+			k = f.nonStringKey(kvList[i])
 			kvList[i] = k
 		}
 		v := kvList[i+1]
@@ -253,7 +285,7 @@ func (f Formatter) flatten(buf *bytes.Buffer, kvList []interface{}, continuing b
 				buf.WriteByte(',')
 			} else {
 				// In theory the format could be something we don't understand.  In
-				// practice, we control it, so it won't
+				// practice, we control it, so it won't be.
 				buf.WriteByte(' ')
 			}
 		}
@@ -337,6 +369,26 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 		return `"` + strconv.FormatComplex(complex128(v), 'f', -1, 64) + `"`
 	case complex128:
 		return `"` + strconv.FormatComplex(v, 'f', -1, 128) + `"`
+	case PseudoStruct:
+		buf := bytes.NewBuffer(make([]byte, 0, 1024))
+		v = f.sanitize(v)
+		if flags&flagRawStruct == 0 {
+			buf.WriteByte('{')
+		}
+		for i := 0; i < len(v); i += 2 {
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+			buf.WriteByte('"')
+			buf.WriteString(v[i].(string))
+			buf.WriteByte('"')
+			buf.WriteByte(':')
+			buf.WriteString(f.pretty(v[i+1]))
+		}
+		if flags&flagRawStruct == 0 {
+			buf.WriteByte('}')
+		}
+		return buf.String()
 	}
 
 	buf := bytes.NewBuffer(make([]byte, 0, 256))
@@ -480,17 +532,27 @@ func isEmpty(v reflect.Value) bool {
 	return false
 }
 
-type callerID struct {
+// Caller represents the original call site for a log line, after considering
+// logr.Logger.WithCallDepth and logr.Logger.WithCallStackHelper.  The File and
+// Line fields will always be provided, while the Func field is optional.
+// Users can set the render hook fields in Options to examine logged key-value
+// pairs, one of which will be {"caller", Caller} if the Options.LogCaller
+// field is enabled for the given MessageClass.
+type Caller struct {
+	// File is the basename of the file for this call site.
 	File string `json:"file"`
-	Line int    `json:"line"`
+	// Line is the line number in the file for this call site.
+	Line int `json:"line"`
+	// Func is the function name for this call site, or empty if
+	// Options.LogCallerFunc is not enabled.
 	Func string `json:"function,omitempty"`
 }
 
-func (f Formatter) caller() callerID {
+func (f Formatter) caller() Caller {
 	// +1 for this frame, +1 for Info/Error.
 	pc, file, line, ok := runtime.Caller(f.depth + 2)
 	if !ok {
-		return callerID{"<unknown>", 0, ""}
+		return Caller{"<unknown>", 0, ""}
 	}
 	fn := ""
 	if f.opts.LogCallerFunc {
@@ -499,7 +561,40 @@ func (f Formatter) caller() callerID {
 		}
 	}
 
-	return callerID{filepath.Base(file), line, fn}
+	return Caller{filepath.Base(file), line, fn}
+}
+
+const noValue = "<no-value>"
+
+func (f Formatter) nonStringKey(v interface{}) string {
+	return fmt.Sprintf("<non-string-key: %s>", f.snippet(v))
+}
+
+// snippet produces a short snippet string of an arbitrary value.
+func (f Formatter) snippet(v interface{}) string {
+	const snipLen = 16
+
+	snip := f.pretty(v)
+	if len(snip) > snipLen {
+		snip = snip[:snipLen]
+	}
+	return snip
+}
+
+// sanitize ensures that a list of key-value pairs has a value for every key
+// (adding a value if needed) and that each key is a string (substituting a key
+// if needed).
+func (f Formatter) sanitize(kvList []interface{}) []interface{} {
+	if len(kvList)%2 != 0 {
+		kvList = append(kvList, noValue)
+	}
+	for i := 0; i < len(kvList); i += 2 {
+		_, ok := kvList[i].(string)
+		if !ok {
+			kvList[i] = f.nonStringKey(kvList[i])
+		}
+	}
+	return kvList
 }
 
 // Init configures this Formatter from runtime info, such as the call depth
@@ -520,8 +615,8 @@ func (f Formatter) GetDepth() int {
 	return f.depth
 }
 
-// FormatInfo flattens an Info log message into strings.
-// The prefix will be empty when no names were set, or when the output is
+// FormatInfo renders an Info log message into strings.  The prefix will be
+// empty when no names were set (via AddNames), or when the output is
 // configured for JSON.
 func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (prefix, argsStr string) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
@@ -540,8 +635,8 @@ func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (pref
 	return prefix, f.render(args, kvList)
 }
 
-// FormatError flattens an Error log message into strings.
-// The prefix will be empty when no names were set,  or when the output is
+// FormatError renders an Error log message into strings.  The prefix will be
+// empty when no names were set (via AddNames),  or when the output is
 // configured for JSON.
 func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (prefix, argsStr string) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
@@ -578,11 +673,16 @@ func (f *Formatter) AddName(name string) {
 // AddValues adds key-value pairs to the set of saved values to be logged with
 // each log line.
 func (f *Formatter) AddValues(kvList []interface{}) {
-	// Pre-render values, so we don't have to do it on each Info/Error call.
-	buf := bytes.NewBuffer(make([]byte, 0, 1024))
 	// Three slice args forces a copy.
 	n := len(f.values)
-	f.values = f.flatten(buf, append(f.values[:n:n], kvList...), false)
+	vals := append(f.values[:n:n], kvList...)
+	if hook := f.opts.RenderValuesHook; hook != nil {
+		vals = hook(f.sanitize(vals))
+	}
+
+	// Pre-render values, so we don't have to do it on each Info/Error call.
+	buf := bytes.NewBuffer(make([]byte, 0, 1024))
+	f.values = f.flatten(buf, vals, false)
 	f.valuesStr = buf.String()
 }
 

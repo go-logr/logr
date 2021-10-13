@@ -56,3 +56,57 @@ func ExampleUnderlier() {
 	}
 	// Output: hello world
 }
+
+func ExampleOptions() {
+	var log logr.Logger = funcr.NewJSON(
+		func(obj string) { fmt.Println(obj) },
+		funcr.Options{
+			LogCaller: funcr.All,
+			Verbosity: 1, // V(2) and higher is ignored.
+		})
+	log.V(0).Info("V(0) message", "key", "value")
+	log.V(1).Info("V(1) message", "key", "value")
+	log.V(2).Info("V(2) message", "key", "value")
+	// Output:
+	// {"logger":"","caller":{"file":"example_test.go","line":67},"level":0,"msg":"V(0) message","key":"value"}
+	// {"logger":"","caller":{"file":"example_test.go","line":68},"level":1,"msg":"V(1) message","key":"value"}
+}
+
+func ExampleOptions_renderHooks() {
+	// prefix all builtin keys with "log:"
+	prefixSpecialKeys := func(kvList []interface{}) []interface{} {
+		for i := 0; i < len(kvList); i += 2 {
+			k, _ := kvList[i].(string)
+			kvList[i] = "log:" + k
+		}
+		return kvList
+	}
+
+	// present saved values as a single JSON object
+	valuesAsObject := func(kvList []interface{}) []interface{} {
+		return []interface{}{"labels", funcr.PseudoStruct(kvList)}
+	}
+
+	var log logr.Logger = funcr.NewJSON(
+		func(obj string) { fmt.Println(obj) },
+		funcr.Options{
+			RenderBuiltinsHook: prefixSpecialKeys,
+			RenderValuesHook:   valuesAsObject,
+		})
+	log = log.WithName("MyLogger")
+	log = log.WithValues("savedKey", "savedValue")
+	log.Info("the message", "key", "value")
+	// Output: {"log:logger":"MyLogger","log:level":0,"log:msg":"the message","labels":{"savedKey":"savedValue"},"key":"value"}
+}
+
+func ExamplePseudoStruct() {
+	var log logr.Logger = funcr.NewJSON(
+		func(obj string) { fmt.Println(obj) },
+		funcr.Options{})
+	kv := []interface{}{
+		"field1", 12345,
+		"field2", true,
+	}
+	log.Info("the message", "key", funcr.PseudoStruct(kv))
+	// Output: {"logger":"","level":0,"msg":"the message","key":{"field1":12345,"field2":true}}
+}
