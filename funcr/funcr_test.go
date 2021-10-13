@@ -461,51 +461,75 @@ func makeKV(args ...interface{}) []interface{} {
 func TestRender(t *testing.T) {
 	testCases := []struct {
 		name       string
-		kv         []interface{}
+		builtins   []interface{}
+		values     []interface{}
+		args       []interface{}
 		expectKV   string
 		expectJSON string
 	}{{
 		name:       "nil",
-		kv:         nil,
 		expectKV:   "",
 		expectJSON: "{}",
 	}, {
 		name:       "empty",
-		kv:         []interface{}{},
+		builtins:   []interface{}{},
+		values:     []interface{}{},
+		args:       []interface{}{},
 		expectKV:   "",
 		expectJSON: "{}",
 	}, {
 		name:       "primitives",
-		kv:         makeKV("int", 1, "str", "ABC", "bool", true),
-		expectKV:   `"int"=1 "str"="ABC" "bool"=true`,
-		expectJSON: `{"int":1,"str":"ABC","bool":true}`,
+		builtins:   makeKV("int1", 1, "int2", 2),
+		values:     makeKV("str1", "ABC", "str2", "DEF"),
+		args:       makeKV("bool1", true, "bool2", false),
+		expectKV:   `"int1"=1 "int2"=2 "str1"="ABC" "str2"="DEF" "bool1"=true "bool2"=false`,
+		expectJSON: `{"int1":1,"int2":2,"str1":"ABC","str2":"DEF","bool1":true,"bool2":false}`,
 	}, {
 		name:       "missing value",
-		kv:         makeKV("key"),
-		expectKV:   `"key"="<no-value>"`,
-		expectJSON: `{"key":"<no-value>"}`,
+		builtins:   makeKV("builtin"),
+		values:     makeKV("value"),
+		args:       makeKV("arg"),
+		expectKV:   `"builtin"="<no-value>" "value"="<no-value>" "arg"="<no-value>"`,
+		expectJSON: `{"builtin":"<no-value>","value":"<no-value>","arg":"<no-value>"}`,
 	}, {
-		name:       "non-string key",
-		kv:         makeKV(123, "val"),
-		expectKV:   `"<non-string-key>"="val"`,
-		expectJSON: `{"<non-string-key>":"val"}`,
+		name:       "non-string key int",
+		args:       makeKV(123, "val"),
+		values:     makeKV(456, "val"),
+		builtins:   makeKV(789, "val"),
+		expectKV:   `"<non-string-key: 789>"="val" "<non-string-key: 456>"="val" "<non-string-key: 123>"="val"`,
+		expectJSON: `{"<non-string-key: 789>":"val","<non-string-key: 456>":"val","<non-string-key: 123>":"val"}`,
+	}, {
+		name: "non-string key struct",
+		args: makeKV(struct {
+			F1 string
+			F2 int
+		}{"arg", 123}, "val"),
+		values: makeKV(struct {
+			F1 string
+			F2 int
+		}{"value", 456}, "val"),
+		builtins: makeKV(struct {
+			F1 string
+			F2 int
+		}{"builtin", 789}, "val"),
+		expectKV:   `"<non-string-key: {"F1":"builtin",>"="val" "<non-string-key: {"F1":"value","F>"="val" "<non-string-key: {"F1":"arg","F2">"="val"`,
+		expectJSON: `{"<non-string-key: {"F1":"builtin",>":"val","<non-string-key: {"F1":"value","F>":"val","<non-string-key: {"F1":"arg","F2">":"val"}`,
 	}}
 
-	fKV := NewFormatter(Options{})
-	fJSON := NewFormatterJSON(Options{})
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Run("KV", func(t *testing.T) {
-				r := fKV.render(tc.kv, nil)
-				if r != tc.expectKV {
-					t.Errorf("wrong KV output:\nexpected %q\n     got %q", tc.expectKV, r)
+			test := func(t *testing.T, formatter Formatter, expect string) {
+				formatter.AddValues(tc.values)
+				r := formatter.render(tc.builtins, tc.args)
+				if r != expect {
+					t.Errorf("wrong output:\nexpected %q\n     got %q", expect, r)
 				}
+			}
+			t.Run("KV", func(t *testing.T) {
+				test(t, NewFormatter(Options{}), tc.expectKV)
 			})
 			t.Run("JSON", func(t *testing.T) {
-				r := fJSON.render(tc.kv, nil)
-				if r != tc.expectJSON {
-					t.Errorf("wrong JSON output:\nexpected %q\n     got %q", tc.expectJSON, r)
-				}
+				test(t, NewFormatterJSON(Options{}), tc.expectJSON)
 			})
 		})
 	}
@@ -805,6 +829,11 @@ func TestInfoWithValues(t *testing.T) {
 		values: makeKV("one", 1, "two", 2),
 		args:   makeKV("k", "v"),
 		expect: ` "level"=0 "msg"="msg" "one"=1 "two"=2 "k"="v"`,
+	}, {
+		name:   "dangling",
+		values: makeKV("dangling"),
+		args:   makeKV("k", "v"),
+		expect: ` "level"=0 "msg"="msg" "dangling"="<no-value>" "k"="v"`,
 	}}
 
 	for _, tc := range testCases {
@@ -841,6 +870,11 @@ func TestErrorWithValues(t *testing.T) {
 		values: makeKV("one", 1, "two", 2),
 		args:   makeKV("k", "v"),
 		expect: ` "msg"="msg" "error"="err" "one"=1 "two"=2 "k"="v"`,
+	}, {
+		name:   "dangling",
+		values: makeKV("dangling"),
+		args:   makeKV("k", "v"),
+		expect: ` "msg"="msg" "error"="err" "dangling"="<no-value>" "k"="v"`,
 	}}
 
 	for _, tc := range testCases {
