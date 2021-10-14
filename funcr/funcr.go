@@ -36,6 +36,7 @@ package funcr
 
 import (
 	"bytes"
+	"encoding"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -492,12 +493,24 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 			if i > 0 {
 				buf.WriteByte(',')
 			}
-			// prettyWithFlags will produce already-escaped values
-			keystr := f.prettyWithFlags(it.Key().Interface(), 0)
-			if t.Key().Kind() != reflect.String {
-				// JSON only does string keys.  Unlike Go's standard JSON, we'll
-				// convert just about anything to a string.
+			// If a map key supports TextMarshaler, use it.
+			keystr := ""
+			if m, ok := it.Key().Interface().(encoding.TextMarshaler); ok {
+				txt, err := m.MarshalText()
+				if err != nil {
+					keystr = fmt.Sprintf("<error-MarshalText: %s>", err.Error())
+				} else {
+					keystr = string(txt)
+				}
 				keystr = prettyString(keystr)
+			} else {
+				// prettyWithFlags will produce already-escaped values
+				keystr = f.prettyWithFlags(it.Key().Interface(), 0)
+				if t.Key().Kind() != reflect.String {
+					// JSON only does string keys.  Unlike Go's standard JSON, we'll
+					// convert just about anything to a string.
+					keystr = prettyString(keystr)
+				}
 			}
 			buf.WriteString(keystr)
 			buf.WriteByte(':')

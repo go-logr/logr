@@ -37,6 +37,20 @@ func ptrstr(s string) *string {
 	return &s
 }
 
+// point implements encoding.TextMarshaler and can be used as a map key.
+type point struct{ x, y int }
+
+func (p point) MarshalText() ([]byte, error) {
+	return []byte(fmt.Sprintf("(%d, %d)", p.x, p.y)), nil
+}
+
+// pointErr implements encoding.TextMarshaler but returns an error.
+type pointErr struct{ x, y int }
+
+func (p pointErr) MarshalText() ([]byte, error) {
+	return nil, fmt.Errorf("uh oh: %d, %d", p.x, p.y)
+}
+
 // Logging this should result in the MarshalLog() value.
 type Tmarshaler string
 
@@ -289,6 +303,17 @@ func TestPretty(t *testing.T) {
 			exp: `{"9.5":3}`,
 		},
 		{
+			val: map[point]int{
+				{x: 1, y: 2}: 3,
+			},
+		},
+		{
+			val: map[pointErr]int{
+				{x: 1, y: 2}: 3,
+			},
+			exp: `{"<error-MarshalText: uh oh: 1, 2>":3}`,
+		},
+		{
 			val: struct {
 				X int `json:"x"`
 				Y int `json:"y"`
@@ -496,7 +521,7 @@ func TestPretty(t *testing.T) {
 		} else {
 			jb, err := json.Marshal(tc.val)
 			if err != nil {
-				t.Fatalf("[%d]: unexpected error: %v", i, err)
+				t.Fatalf("[%d]: unexpected error: %v\ngot: %q", i, err, ours)
 			}
 			want = string(jb)
 		}
