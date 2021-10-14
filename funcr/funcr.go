@@ -36,6 +36,7 @@ package funcr
 
 import (
 	"bytes"
+	"encoding"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -236,7 +237,7 @@ func (f Formatter) render(builtins, args []interface{}) string {
 	if hook := f.opts.RenderBuiltinsHook; hook != nil {
 		vals = hook(f.sanitize(vals))
 	}
-	f.flatten(buf, vals, false)
+	f.flatten(buf, vals, false, false) // keys are ours, no need to escape
 	continuing := len(builtins) > 0
 	if len(f.valuesStr) > 0 {
 		if continuing {
@@ -253,7 +254,7 @@ func (f Formatter) render(builtins, args []interface{}) string {
 	if hook := f.opts.RenderArgsHook; hook != nil {
 		vals = hook(f.sanitize(vals))
 	}
-	f.flatten(buf, vals, continuing)
+	f.flatten(buf, vals, continuing, true) // escape user-provided keys
 	if f.outputFormat == outputJSON {
 		buf.WriteByte('}')
 	}
@@ -263,10 +264,13 @@ func (f Formatter) render(builtins, args []interface{}) string {
 // flatten renders a list of key-value pairs into a buffer.  If continuing is
 // true, it assumes that the buffer has previous values and will emit a
 // separator (which depends on the output format) before the first pair it
-// writes.  This also returns a potentially modified version of kvList, which
+// writes.  If escapeKeys is true, the keys are assumed to have
+// non-JSON-compatible characters in them and must be evaluated for escapes.
+//
+// This function returns a potentially modified version of kvList, which
 // ensures that there is a value for every key (adding a value if needed) and
 // that each key is a string (substituting a key if needed).
-func (f Formatter) flatten(buf *bytes.Buffer, kvList []interface{}, continuing bool) []interface{} {
+func (f Formatter) flatten(buf *bytes.Buffer, kvList []interface{}, continuing bool, escapeKeys bool) []interface{} {
 	// This logic overlaps with sanitize() but saves one type-cast per key,
 	// which can be measurable.
 	if len(kvList)%2 != 0 {
@@ -290,9 +294,14 @@ func (f Formatter) flatten(buf *bytes.Buffer, kvList []interface{}, continuing b
 			}
 		}
 
-		buf.WriteByte('"')
-		buf.WriteString(k)
-		buf.WriteByte('"')
+		if escapeKeys {
+			buf.WriteString(prettyString(k))
+		} else {
+			// this is faster
+			buf.WriteByte('"')
+			buf.WriteString(k)
+			buf.WriteByte('"')
+		}
 		if f.outputFormat == outputJSON {
 			buf.WriteByte(':')
 		} else {
@@ -308,8 +317,7 @@ func (f Formatter) pretty(value interface{}) string {
 }
 
 const (
-	flagRawString = 0x1 // do not print quotes on strings
-	flagRawStruct = 0x2 // do not print braces on structs
+	flagRawStruct = 0x1 // do not print braces on structs
 )
 
 // TODO: This is not fast. Most of the overhead goes here.
@@ -334,11 +342,7 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 	case bool:
 		return strconv.FormatBool(v)
 	case string:
-		if flags&flagRawString > 0 {
-			return v
-		}
-		// This is empirically faster than strings.Builder.
-		return strconv.Quote(v)
+		return prettyString(v)
 	case int:
 		return strconv.FormatInt(int64(v), 10)
 	case int8:
@@ -379,9 +383,8 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 			if i > 0 {
 				buf.WriteByte(',')
 			}
-			buf.WriteByte('"')
-			buf.WriteString(v[i].(string))
-			buf.WriteByte('"')
+			// arbitrary keys might need escaping
+			buf.WriteString(prettyString(v[i].(string)))
 			buf.WriteByte(':')
 			buf.WriteString(f.pretty(v[i+1]))
 		}
@@ -401,11 +404,7 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 	case reflect.Bool:
 		return strconv.FormatBool(v.Bool())
 	case reflect.String:
-		if flags&flagRawString > 0 {
-			return v.String()
-		}
-		// This is empirically faster than strings.Builder.
-		return `"` + v.String() + `"`
+		return prettyString(v.String())
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return strconv.FormatInt(int64(v.Int()), 10)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
@@ -463,6 +462,7 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 			if name == "" {
 				name = fld.Name
 			}
+			// field names can't contain characters which need escaping
 			buf.WriteByte('"')
 			buf.WriteString(name)
 			buf.WriteByte('"')
@@ -493,10 +493,26 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 			if i > 0 {
 				buf.WriteByte(',')
 			}
-			// JSON only does string keys.
-			buf.WriteByte('"')
-			buf.WriteString(f.prettyWithFlags(it.Key().Interface(), flagRawString))
-			buf.WriteByte('"')
+			// If a map key supports TextMarshaler, use it.
+			keystr := ""
+			if m, ok := it.Key().Interface().(encoding.TextMarshaler); ok {
+				txt, err := m.MarshalText()
+				if err != nil {
+					keystr = fmt.Sprintf("<error-MarshalText: %s>", err.Error())
+				} else {
+					keystr = string(txt)
+				}
+				keystr = prettyString(keystr)
+			} else {
+				// prettyWithFlags will produce already-escaped values
+				keystr = f.prettyWithFlags(it.Key().Interface(), 0)
+				if t.Key().Kind() != reflect.String {
+					// JSON only does string keys.  Unlike Go's standard JSON, we'll
+					// convert just about anything to a string.
+					keystr = prettyString(keystr)
+				}
+			}
+			buf.WriteString(keystr)
 			buf.WriteByte(':')
 			buf.WriteString(f.pretty(it.Value().Interface()))
 			i++
@@ -510,6 +526,29 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32) string {
 		return f.pretty(v.Elem().Interface())
 	}
 	return fmt.Sprintf(`"<unhandled-%s>"`, t.Kind().String())
+}
+
+func prettyString(s string) string {
+	// Avoid escaping (which does allocations) if we can.
+	if needsEscape(s) {
+		return strconv.Quote(s)
+	}
+	b := bytes.NewBuffer(make([]byte, 0, 1024))
+	b.WriteByte('"')
+	b.WriteString(s)
+	b.WriteByte('"')
+	return b.String()
+}
+
+// needsEscape determines whether the input string needs to be escaped or not,
+// without doing any allocations.
+func needsEscape(s string) bool {
+	for _, r := range s {
+		if !strconv.IsPrint(r) || r == '\\' || r == '"' {
+			return true
+		}
+	}
+	return false
 }
 
 func isEmpty(v reflect.Value) bool {
@@ -675,14 +714,15 @@ func (f *Formatter) AddName(name string) {
 func (f *Formatter) AddValues(kvList []interface{}) {
 	// Three slice args forces a copy.
 	n := len(f.values)
-	vals := append(f.values[:n:n], kvList...)
+	vals := f.values[:n:n]
+	vals = append(vals, kvList...)
 	if hook := f.opts.RenderValuesHook; hook != nil {
 		vals = hook(f.sanitize(vals))
 	}
 
 	// Pre-render values, so we don't have to do it on each Info/Error call.
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
-	f.values = f.flatten(buf, vals, false)
+	f.values = f.flatten(buf, vals, false, true) // escape user-provided keys
 	f.valuesStr = buf.String()
 }
 

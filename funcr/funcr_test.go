@@ -27,6 +27,7 @@ import (
 	"github.com/go-logr/logr"
 )
 
+// Will be handled via reflection instead of type assertions.
 type substr string
 
 func ptrint(i int) *int {
@@ -34,6 +35,20 @@ func ptrint(i int) *int {
 }
 func ptrstr(s string) *string {
 	return &s
+}
+
+// point implements encoding.TextMarshaler and can be used as a map key.
+type point struct{ x, y int }
+
+func (p point) MarshalText() ([]byte, error) {
+	return []byte(fmt.Sprintf("(%d, %d)", p.x, p.y)), nil
+}
+
+// pointErr implements encoding.TextMarshaler but returns an error.
+type pointErr struct{ x, y int }
+
+func (p pointErr) MarshalText() ([]byte, error) {
+	return nil, fmt.Errorf("uh oh: %d, %d", p.x, p.y)
 }
 
 // Logging this should result in the MarshalLog() value.
@@ -198,7 +213,9 @@ func TestPretty(t *testing.T) {
 		exp string // used in cases where JSON can't handle it
 	}{
 		{val: "strval"},
+		{val: "strval\nwith\t\"escapes\""},
 		{val: substr("substrval")},
+		{val: substr("substrval\nwith\t\"escapes\"")},
 		{val: true},
 		{val: false},
 		{val: int(93)},
@@ -235,7 +252,11 @@ func TestPretty(t *testing.T) {
 			exp: `[]`,
 		},
 		{val: []int{9, 3, 7, 6}},
+		{val: []string{"str", "with\tescape"}},
+		{val: []substr{"substr", "with\tescape"}},
 		{val: [4]int{9, 3, 7, 6}},
+		{val: [2]string{"str", "with\tescape"}},
+		{val: [2]substr{"substr", "with\tescape"}},
 		{
 			val: struct {
 				Int         int
@@ -256,9 +277,41 @@ func TestPretty(t *testing.T) {
 			},
 		},
 		{
+			val: map[string]int{
+				"with\tescape": 76,
+			},
+		},
+		{
 			val: map[substr]int{
 				"nine": 3,
 			},
+		},
+		{
+			val: map[substr]int{
+				"with\tescape": 76,
+			},
+		},
+		{
+			val: map[int]int{
+				9: 3,
+			},
+		},
+		{
+			val: map[float64]int{
+				9.5: 3,
+			},
+			exp: `{"9.5":3}`,
+		},
+		{
+			val: map[point]int{
+				{x: 1, y: 2}: 3,
+			},
+		},
+		{
+			val: map[pointErr]int{
+				{x: 1, y: 2}: 3,
+			},
+			exp: `{"<error-MarshalText: uh oh: 1, 2>":3}`,
 		},
 		{
 			val: struct {
@@ -283,6 +336,7 @@ func TestPretty(t *testing.T) {
 			val: []struct{ X, Y string }{
 				{"nine", "three"},
 				{"seven", "six"},
+				{"with\t", "\tescapes"},
 			},
 		},
 		{
@@ -438,6 +492,24 @@ func TestPretty(t *testing.T) {
 			val: PseudoStruct(makeKV("f1", 1, "f2", true, "f3", []int{})),
 			exp: `{"f1":1,"f2":true,"f3":[]}`,
 		},
+		{
+			val: map[TjsontagsString]int{
+				{String1: `"quoted"`, String4: `unquoted`}: 1,
+			},
+			exp: `{"{\"string1\":\"\\\"quoted\\\"\",\"-\":\"\",\"string4\":\"unquoted\",\"String5\":\"\"}":1}`,
+		},
+		{
+			val: map[TjsontagsInt]int{
+				{Int1: 1, Int2: 2}: 3,
+			},
+			exp: `{"{\"int1\":1,\"-\":0,\"Int5\":0}":3}`,
+		},
+		{
+			val: map[[2]struct{ S string }]int{
+				{{S: `"quoted"`}, {S: "unquoted"}}: 1,
+			},
+			exp: `{"[{\"S\":\"\\\"quoted\\\"\"},{\"S\":\"unquoted\"}]":1}`,
+		},
 	}
 
 	f := NewFormatter(Options{})
@@ -449,7 +521,7 @@ func TestPretty(t *testing.T) {
 		} else {
 			jb, err := json.Marshal(tc.val)
 			if err != nil {
-				t.Errorf("[%d]: unexpected error: %v", i, err)
+				t.Fatalf("[%d]: unexpected error: %v\ngot: %q", i, err, ours)
 			}
 			want = string(jb)
 		}
@@ -497,6 +569,13 @@ func TestRender(t *testing.T) {
 		expectKV:   `"int"={"intsub":1} "str"={"strsub":"2"} "bool"={"boolsub":true}`,
 		expectJSON: `{"int":{"intsub":1},"str":{"strsub":"2"},"bool":{"boolsub":true}}`,
 	}, {
+		name:       "escapes",
+		builtins:   makeKV("\"1\"", 1),     // will not be escaped, but should never happen
+		values:     makeKV("\tstr", "ABC"), // escaped
+		args:       makeKV("bool\n", true), // escaped
+		expectKV:   `""1""=1 "\tstr"="ABC" "bool\n"=true`,
+		expectJSON: `{""1"":1,"\tstr":"ABC","bool\n":true}`,
+	}, {
 		name:       "missing value",
 		builtins:   makeKV("builtin"),
 		values:     makeKV("value"),
@@ -505,27 +584,27 @@ func TestRender(t *testing.T) {
 		expectJSON: `{"builtin":"<no-value>","value":"<no-value>","arg":"<no-value>"}`,
 	}, {
 		name:       "non-string key int",
-		args:       makeKV(123, "val"),
+		builtins:   makeKV(123, "val"), // should never happen
 		values:     makeKV(456, "val"),
-		builtins:   makeKV(789, "val"),
-		expectKV:   `"<non-string-key: 789>"="val" "<non-string-key: 456>"="val" "<non-string-key: 123>"="val"`,
-		expectJSON: `{"<non-string-key: 789>":"val","<non-string-key: 456>":"val","<non-string-key: 123>":"val"}`,
+		args:       makeKV(789, "val"),
+		expectKV:   `"<non-string-key: 123>"="val" "<non-string-key: 456>"="val" "<non-string-key: 789>"="val"`,
+		expectJSON: `{"<non-string-key: 123>":"val","<non-string-key: 456>":"val","<non-string-key: 789>":"val"}`,
 	}, {
 		name: "non-string key struct",
-		args: makeKV(struct {
+		builtins: makeKV(struct { // will not be escaped, but should never happen
 			F1 string
 			F2 int
-		}{"arg", 123}, "val"),
+		}{"builtin", 123}, "val"),
 		values: makeKV(struct {
 			F1 string
 			F2 int
 		}{"value", 456}, "val"),
-		builtins: makeKV(struct {
+		args: makeKV(struct {
 			F1 string
 			F2 int
-		}{"builtin", 789}, "val"),
-		expectKV:   `"<non-string-key: {"F1":"builtin",>"="val" "<non-string-key: {"F1":"value","F>"="val" "<non-string-key: {"F1":"arg","F2">"="val"`,
-		expectJSON: `{"<non-string-key: {"F1":"builtin",>":"val","<non-string-key: {"F1":"value","F>":"val","<non-string-key: {"F1":"arg","F2">":"val"}`,
+		}{"arg", 789}, "val"),
+		expectKV:   `"<non-string-key: {"F1":"builtin",>"="val" "<non-string-key: {\"F1\":\"value\",\"F>"="val" "<non-string-key: {\"F1\":\"arg\",\"F2\">"="val"`,
+		expectJSON: `{"<non-string-key: {"F1":"builtin",>":"val","<non-string-key: {\"F1\":\"value\",\"F>":"val","<non-string-key: {\"F1\":\"arg\",\"F2\">":"val"}`,
 	}}
 
 	for _, tc := range testCases {
@@ -534,7 +613,7 @@ func TestRender(t *testing.T) {
 				formatter.AddValues(tc.values)
 				r := formatter.render(tc.builtins, tc.args)
 				if r != expect {
-					t.Errorf("wrong output:\nexpected %q\n     got %q", expect, r)
+					t.Errorf("wrong output:\nexpected %v\n     got %v", expect, r)
 				}
 			}
 			t.Run("KV", func(t *testing.T) {
