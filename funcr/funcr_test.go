@@ -1051,3 +1051,17 @@ func TestErrorWithCallDepth(t *testing.T) {
 		}
 	})
 }
+
+func TestOptionsTimestampFormat(t *testing.T) {
+	cap := &capture{}
+	//  This timestamp format contains none of the characters that are
+	//  considered placeholders, so will produce a constant result.
+	sink := newSink(cap.Func, NewFormatter(Options{LogTimestamp: true, TimestampFormat: "TIMESTAMP"}))
+	dSink, _ := sink.(logr.CallDepthLogSink)
+	sink = dSink.WithCallDepth(1)
+	sink.Info(0, "msg")
+	expect := ` "ts"="TIMESTAMP" "level"=0 "msg"="msg"`
+	if cap.log != expect {
+		t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+	}
+}
