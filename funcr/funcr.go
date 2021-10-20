@@ -94,6 +94,11 @@ type Options struct {
 	// overhead, so some users might not want it.
 	LogTimestamp bool
 
+	// TimestampFormat tells funcr how to render timestamps when LogTimestamp
+	// is enabled.  If not specified, a default format will be used.  For more
+	// details, see docs for Go's time.Layout.
+	TimestampFormat string
+
 	// Verbosity tells funcr which V logs to produce.  Higher values enable
 	// more logs.  Info logs at or below this level will be written, while logs
 	// above this level will be discarded.
@@ -136,8 +141,6 @@ const (
 	// Error only considers error messages.
 	Error
 )
-
-const timestampFmt = "2006-01-02 15:04:05.000000"
 
 // fnlogger inherits some of its LogSink implementation from Formatter
 // and just needs to add some glue code.
@@ -190,7 +193,12 @@ func NewFormatterJSON(opts Options) Formatter {
 	return newFormatter(opts, outputJSON)
 }
 
+const defaultTimestampFmt = "2006-01-02 15:04:05.000000"
+
 func newFormatter(opts Options, outfmt outputFormat) Formatter {
+	if opts.TimestampFormat == "" {
+		opts.TimestampFormat = defaultTimestampFmt
+	}
 	f := Formatter{
 		outputFormat: outfmt,
 		prefix:       "",
@@ -665,7 +673,7 @@ func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (pref
 		prefix = ""
 	}
 	if f.opts.LogTimestamp {
-		args = append(args, "ts", time.Now().Format(timestampFmt))
+		args = append(args, "ts", time.Now().Format(f.opts.TimestampFormat))
 	}
 	if policy := f.opts.LogCaller; policy == All || policy == Info {
 		args = append(args, "caller", f.caller())
@@ -685,7 +693,7 @@ func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (pre
 		prefix = ""
 	}
 	if f.opts.LogTimestamp {
-		args = append(args, "ts", time.Now().Format(timestampFmt))
+		args = append(args, "ts", time.Now().Format(f.opts.TimestampFormat))
 	}
 	if policy := f.opts.LogCaller; policy == All || policy == Error {
 		args = append(args, "caller", f.caller())
