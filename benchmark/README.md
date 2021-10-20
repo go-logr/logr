@@ -6,7 +6,7 @@ change.
 ## Running the benchmark
 
 ```
-$ go test -bench='.' ./benchmark/
+$ go test -bench='.' -test.benchmem ./benchmark/
 ```
 
 ## Fixing the benchmark
