@@ -722,15 +722,16 @@ func (f *Formatter) AddName(name string) {
 func (f *Formatter) AddValues(kvList []interface{}) {
 	// Three slice args forces a copy.
 	n := len(f.values)
-	vals := f.values[:n:n]
-	vals = append(vals, kvList...)
+	f.values = append(f.values[:n:n], kvList...)
+
+	vals := f.values
 	if hook := f.opts.RenderValuesHook; hook != nil {
 		vals = hook(f.sanitize(vals))
 	}
 
 	// Pre-render values, so we don't have to do it on each Info/Error call.
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
-	f.values = f.flatten(buf, vals, false, true) // escape user-provided keys
+	f.flatten(buf, vals, false, true) // escape user-provided keys
 	f.valuesStr = buf.String()
 }
 
