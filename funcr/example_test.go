@@ -94,9 +94,10 @@ func ExampleOptions_renderHooks() {
 			RenderValuesHook:   valuesAsObject,
 		})
 	log = log.WithName("MyLogger")
-	log = log.WithValues("savedKey", "savedValue")
+	log = log.WithValues("savedKey1", "savedVal1")
+	log = log.WithValues("savedKey2", "savedVal2")
 	log.Info("the message", "key", "value")
-	// Output: {"log:logger":"MyLogger","log:level":0,"log:msg":"the message","labels":{"savedKey":"savedValue"},"key":"value"}
+	// Output: {"log:logger":"MyLogger","log:level":0,"log:msg":"the message","labels":{"savedKey1":"savedVal1","savedKey2":"savedVal2"},"key":"value"}
 }
 
 func ExamplePseudoStruct() {
