@@ -45,6 +45,7 @@ func main() {
 		funcr.Options{
 			LogCaller:    funcr.All,
 			LogTimestamp: true,
+			Verbosity:    1,
 		})
 	example(log.WithValues("module", "example"))
 }
