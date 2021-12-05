@@ -201,15 +201,16 @@ func NewFormatterJSON(opts Options) Formatter {
 	return newFormatter(opts, outputJSON)
 }
 
-const defaultTimestampFmt = "2006-01-02 15:04:05.000000"
-const defaultMaxDepth = 16
+// Defaults for Options.
+const defaultTimestampFormat = "2006-01-02 15:04:05.000000"
+const defaultMaxLogDepth = 16
 
 func newFormatter(opts Options, outfmt outputFormat) Formatter {
 	if opts.TimestampFormat == "" {
-		opts.TimestampFormat = defaultTimestampFmt
+		opts.TimestampFormat = defaultTimestampFormat
 	}
 	if opts.MaxLogDepth == 0 {
-		opts.MaxLogDepth = defaultMaxDepth
+		opts.MaxLogDepth = defaultMaxLogDepth
 	}
 	f := Formatter{
 		outputFormat: outfmt,
