@@ -111,3 +111,17 @@ func ExamplePseudoStruct() {
 	log.Info("the message", "key", funcr.PseudoStruct(kv))
 	// Output: {"logger":"","level":0,"msg":"the message","key":{"field1":12345,"field2":true}}
 }
+
+func ExampleOptions_maxLogDepth() {
+	type List struct {
+		Next *List
+	}
+	l := List{}
+	l.Next = &l // recursive
+
+	var log logr.Logger = funcr.NewJSON(
+		func(obj string) { fmt.Println(obj) },
+		funcr.Options{MaxLogDepth: 4})
+	log.Info("recursive", "list", l)
+	// Output: {"logger":"","level":0,"msg":"recursive","list":{"Next":{"Next":{"Next":{"Next":{"Next":"<max-log-depth-exceeded>"}}}}}}
+}
