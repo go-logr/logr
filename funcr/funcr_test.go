@@ -574,6 +574,10 @@ func TestPretty(t *testing.T) {
 			},
 			exp: `{"[{\"S\":\"\\\"quoted\\\"\"},{\"S\":\"unquoted\"}]":1}`,
 		},
+		{
+			val: logr.Callback(func() interface{} { return []int{8, 6, 7, 5, 3, 0, 9} }),
+			exp: `[8,6,7,5,3,0,9]`,
+		},
 	}
 
 	f := NewFormatter(Options{})

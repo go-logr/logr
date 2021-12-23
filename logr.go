@@ -495,6 +495,9 @@ type CallStackHelperLogSink interface {
 // implement. Loggers with structured output, such as JSON, should
 // log the object return by the MarshalLog method instead of the
 // original value.
+//
+// Marshaler and Callback are mutually exclusive.  Even if MarshalLog
+// returns a Callback, the Callback will not be invoked.
 type Marshaler interface {
 	// MarshalLog can be used to:
 	//   - ensure that structs are not logged as strings when the original
@@ -508,3 +511,11 @@ type Marshaler interface {
 	// It may return any value of any type.
 	MarshalLog() interface{}
 }
+
+// Callback is a function which is called only when it is actually logged.  This
+// can be used to defer expensive operations when they might not be logged (for
+// example at higher V levels).
+//
+// Callback and Marshaler are mutually exclusive.  Even if the Callback returns
+// a Marshaler, the MarshalLog method will not be invoked.
+type Callback func() interface{}

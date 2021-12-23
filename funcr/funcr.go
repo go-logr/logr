@@ -352,6 +352,10 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32, depth int) s
 		// Replace the value with what the type wants to get logged.
 		// That then gets handled below via reflection.
 		value = invokeMarshaler(v)
+	} else if v, ok := value.(logr.Callback); ok {
+		// Replace the value with what the callsite wants to get logged.
+		// That then gets handled below via reflection.
+		value = invokeFunc(v)
 	}
 
 	// Handle types that want to format themselves.
@@ -604,6 +608,15 @@ func invokeMarshaler(m logr.Marshaler) (ret interface{}) {
 		}
 	}()
 	return m.MarshalLog()
+}
+
+func invokeFunc(f logr.Callback) (ret interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			ret = fmt.Sprintf("<panic: %s>", r)
+		}
+	}()
+	return f()
 }
 
 func invokeStringer(s fmt.Stringer) (ret string) {

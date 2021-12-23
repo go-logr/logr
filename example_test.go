@@ -18,6 +18,7 @@ package logr_test
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
@@ -43,4 +44,12 @@ func Example() {
 	// "level"=0 "msg"="default info log" "stringVal"="value" "intVal"=12345
 	// "level"=0 "msg"="V(0) info log" "stringVal"="value" "intVal"=12345
 	// "msg"="error log" "error"="an error" "stringVal"="value" "intVal"=12345
+}
+
+func ExampleCallback() {
+	l := NewStdoutLogger()
+	long := "I have of late but wherefore I know not lost all my mirth"
+
+	l.Info("the message", "key", logr.Callback(func() interface{} { return strings.Fields(long)[5:9] }))
+	// Output: "level"=0 "msg"="the message" "key"=["wherefore","I","know","not"]
 }
