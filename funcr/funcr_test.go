@@ -569,6 +569,80 @@ func TestPretty(t *testing.T) {
 			{{S: `"quoted"`}, {S: "unquoted"}}: 1,
 		},
 		exp: `{"[{\"S\":\"\\\"quoted\\\"\"},{\"S\":\"unquoted\"}]":1}`,
+	}, {
+		val: TjsontagsComplex{},
+		exp: `{"complex1":"(0+0i)","-":"(0+0i)","Complex5":"(0+0i)"}`,
+	}, {
+		val: TjsontagsPtr{
+			Ptr1: newStr("1"),
+			Ptr2: newStr("2"),
+			Ptr3: newStr("3"),
+			Ptr4: newStr("4"),
+			Ptr5: newStr("5"),
+			Ptr6: newStr("6"),
+		},
+	}, {
+		val: TjsontagsPtr{},
+	}, {
+		val: TjsontagsArray{
+			Array1: [2]string{"v1", "v1"},
+			Array2: [2]string{"v2", "v2"},
+			Array3: [2]string{"v3", "v3"},
+			Array4: [2]string{"v4", "v4"},
+			Array5: [2]string{"v5", "v5"},
+			Array6: [2]string{"v6", "v6"},
+		},
+	}, {
+		val: TjsontagsArray{},
+	}, {
+		val: TjsontagsSlice{
+			Slice1: []string{"v1", "v1"},
+			Slice2: []string{"v2", "v2"},
+			Slice3: []string{"v3", "v3"},
+			Slice4: []string{"v4", "v4"},
+			Slice5: []string{"v5", "v5"},
+			Slice6: []string{"v6", "v6"},
+		},
+	}, {
+		val: TjsontagsSlice{},
+		exp: `{"slice1":[],"-":[],"Slice5":[]}`,
+	}, {
+		val: TjsontagsMap{
+			Map1: map[string]string{"k1": "v1"},
+			Map2: map[string]string{"k2": "v2"},
+			Map3: map[string]string{"k3": "v3"},
+			Map4: map[string]string{"k4": "v4"},
+			Map5: map[string]string{"k5": "v5"},
+			Map6: map[string]string{"k6": "v6"},
+		},
+	}, {
+		val: TjsontagsMap{},
+		exp: `{"map1":{},"-":{},"Map5":{}}`,
+	}, {
+		val: Tembedstruct{},
+	}, {
+		val: Tembednonstruct{},
+		exp: `{"Tinnerint":0,"Tinnermap":{},"Tinnerslice":[]}`,
+	}, {
+		val: Tembedjsontags{},
+	}, {
+		val: PseudoStruct(makeKV("f1", 1, "f2", true, "f3", []int{})),
+		exp: `{"f1":1,"f2":true,"f3":[]}`,
+	}, {
+		val: map[TjsontagsString]int{
+			{String1: `"quoted"`, String4: `unquoted`}: 1,
+		},
+		exp: `{"{\"string1\":\"\\\"quoted\\\"\",\"-\":\"\",\"string4\":\"unquoted\",\"String5\":\"\"}":1}`,
+	}, {
+		val: map[TjsontagsInt]int{
+			{Int1: 1, Int2: 2}: 3,
+		},
+		exp: `{"{\"int1\":1,\"-\":0,\"Int5\":0}":3}`,
+	}, {
+		val: map[[2]struct{ S string }]int{
+			{{S: `"quoted"`}, {S: "unquoted"}}: 1,
+		},
+		exp: `{"[{\"S\":\"\\\"quoted\\\"\"},{\"S\":\"unquoted\"}]":1}`,
 	}}
 
 	f := NewFormatter(Options{})
