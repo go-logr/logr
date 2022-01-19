@@ -52,7 +52,7 @@ func (p pointErr) MarshalText() ([]byte, error) {
 }
 
 // Logging this should result in the MarshalLog() value.
-type Tmarshaler string
+type Tmarshaler struct{ val string }
 
 func (t Tmarshaler) MarshalLog() interface{} {
 	return struct{ Inner string }{"I am a logr.Marshaler"}
@@ -66,8 +66,15 @@ func (t Tmarshaler) Error() string {
 	return "Error(): you should not see this"
 }
 
+// Logging this should result in a panic.
+type Tmarshalerpanic struct{ val string }
+
+func (t Tmarshalerpanic) MarshalLog() interface{} {
+	panic("Tmarshalerpanic")
+}
+
 // Logging this should result in the String() value.
-type Tstringer string
+type Tstringer struct{ val string }
 
 func (t Tstringer) String() string {
 	return "I am a fmt.Stringer"
@@ -75,6 +82,27 @@ func (t Tstringer) String() string {
 
 func (t Tstringer) Error() string {
 	return "Error(): you should not see this"
+}
+
+// Logging this should result in a panic.
+type Tstringerpanic struct{ val string }
+
+func (t Tstringerpanic) String() string {
+	panic("Tstringerpanic")
+}
+
+// Logging this should result in the Error() value.
+type Terror struct{ val string }
+
+func (t Terror) Error() string {
+	return "I am an error"
+}
+
+// Logging this should result in a panic.
+type Terrorpanic struct{ val string }
+
+func (t Terrorpanic) Error() string {
+	panic("Terrorpanic")
 }
 
 type TjsontagsString struct {
@@ -351,16 +379,52 @@ func TestPretty(t *testing.T) {
 			},
 		},
 		{
-			val: Tmarshaler("foobar"),
+			val: Tmarshaler{"foobar"},
 			exp: `{"Inner":"I am a logr.Marshaler"}`,
 		},
 		{
-			val: Tstringer("foobar"),
+			val: &Tmarshaler{"foobar"},
+			exp: `{"Inner":"I am a logr.Marshaler"}`,
+		},
+		{
+			val: (*Tmarshaler)(nil),
+			exp: `"<panic: value method github.com/go-logr/logr/funcr.Tmarshaler.MarshalLog called using nil *Tmarshaler pointer>"`,
+		},
+		{
+			val: Tmarshalerpanic{"foobar"},
+			exp: `"<panic: Tmarshalerpanic>"`,
+		},
+		{
+			val: Tstringer{"foobar"},
 			exp: `"I am a fmt.Stringer"`,
 		},
 		{
-			val: fmt.Errorf("error"),
-			exp: `"error"`,
+			val: &Tstringer{"foobar"},
+			exp: `"I am a fmt.Stringer"`,
+		},
+		{
+			val: (*Tstringer)(nil),
+			exp: `"<panic: value method github.com/go-logr/logr/funcr.Tstringer.String called using nil *Tstringer pointer>"`,
+		},
+		{
+			val: Tstringerpanic{"foobar"},
+			exp: `"<panic: Tstringerpanic>"`,
+		},
+		{
+			val: Terror{"foobar"},
+			exp: `"I am an error"`,
+		},
+		{
+			val: &Terror{"foobar"},
+			exp: `"I am an error"`,
+		},
+		{
+			val: (*Terror)(nil),
+			exp: `"<panic: value method github.com/go-logr/logr/funcr.Terror.Error called using nil *Terror pointer>"`,
+		},
+		{
+			val: Terrorpanic{"foobar"},
+			exp: `"<panic: Terrorpanic>"`,
 		},
 		{
 			val: TjsontagsString{
