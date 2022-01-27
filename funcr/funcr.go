@@ -408,8 +408,9 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32, depth int) s
 			if i > 0 {
 				buf.WriteByte(',')
 			}
+			k, _ := v[i].(string) // sanitize() above means no need to check success
 			// arbitrary keys might need escaping
-			buf.WriteString(prettyString(v[i].(string)))
+			buf.WriteString(prettyString(k))
 			buf.WriteByte(':')
 			buf.WriteString(f.prettyWithFlags(v[i+1], 0, depth+1))
 		}
