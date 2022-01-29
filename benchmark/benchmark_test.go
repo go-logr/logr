@@ -102,6 +102,45 @@ func doWithCallDepth(b *testing.B, log logr.Logger) {
 	}
 }
 
+type Tstringer struct{ s string }
+
+func (t Tstringer) String() string {
+	return t.s
+}
+
+//go:noinline
+func doStringerValue(b *testing.B, log logr.Logger) {
+	for i := 0; i < b.N; i++ {
+		log.Info("this is", "a", Tstringer{"stringer"})
+	}
+}
+
+type Terror struct{ s string }
+
+func (t Terror) Error() string {
+	return t.s
+}
+
+//go:noinline
+func doErrorValue(b *testing.B, log logr.Logger) {
+	for i := 0; i < b.N; i++ {
+		log.Info("this is", "an", Terror{"error"})
+	}
+}
+
+type Tmarshaler struct{ s string }
+
+func (t Tmarshaler) MarshalLog() interface{} {
+	return t.s
+}
+
+//go:noinline
+func doMarshalerValue(b *testing.B, log logr.Logger) {
+	for i := 0; i < b.N; i++ {
+		log.Info("this is", "a", Tmarshaler{"marshaler"})
+	}
+}
+
 func BenchmarkDiscardLogInfoOneArg(b *testing.B) {
 	var log logr.Logger = logr.Discard()
 	doInfoOneArg(b, log)
@@ -218,4 +257,19 @@ func BenchmarkFuncrWithName(b *testing.B) {
 func BenchmarkFuncrWithCallDepth(b *testing.B) {
 	var log logr.Logger = funcr.New(noopKV, funcr.Options{})
 	doWithCallDepth(b, log)
+}
+
+func BenchmarkFuncrJSONLogInfoStringerValue(b *testing.B) {
+	var log logr.Logger = funcr.NewJSON(noopJSON, funcr.Options{})
+	doStringerValue(b, log)
+}
+
+func BenchmarkFuncrJSONLogInfoErrorValue(b *testing.B) {
+	var log logr.Logger = funcr.NewJSON(noopJSON, funcr.Options{})
+	doErrorValue(b, log)
+}
+
+func BenchmarkFuncrJSONLogInfoMarshalerValue(b *testing.B) {
+	var log logr.Logger = funcr.NewJSON(noopJSON, funcr.Options{})
+	doMarshalerValue(b, log)
 }
