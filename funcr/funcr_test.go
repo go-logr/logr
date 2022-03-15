@@ -239,342 +239,337 @@ func TestPretty(t *testing.T) {
 	cases := []struct {
 		val interface{}
 		exp string // used in cases where JSON can't handle it
-	}{
-		{val: "strval"},
-		{val: "strval\nwith\t\"escapes\""},
-		{val: substr("substrval")},
-		{val: substr("substrval\nwith\t\"escapes\"")},
-		{val: true},
-		{val: false},
-		{val: int(93)},
-		{val: int8(93)},
-		{val: int16(93)},
-		{val: int32(93)},
-		{val: int64(93)},
-		{val: int(-93)},
-		{val: int8(-93)},
-		{val: int16(-93)},
-		{val: int32(-93)},
-		{val: int64(-93)},
-		{val: uint(93)},
-		{val: uint8(93)},
-		{val: uint16(93)},
-		{val: uint32(93)},
-		{val: uint64(93)},
-		{val: uintptr(93)},
-		{val: float32(93.76)},
-		{val: float64(93.76)},
-		{
-			val: complex64(93i),
-			exp: `"(0+93i)"`,
+	}{{
+		val: "strval",
+	}, {
+		val: "strval\nwith\t\"escapes\"",
+	}, {
+		val: substr("substrval"),
+	}, {
+		val: substr("substrval\nwith\t\"escapes\""),
+	}, {
+		val: true,
+	}, {
+		val: false,
+	}, {
+		val: int(93),
+	}, {
+		val: int8(93),
+	}, {
+		val: int16(93),
+	}, {
+		val: int32(93),
+	}, {
+		val: int64(93),
+	}, {
+		val: int(-93),
+	}, {
+		val: int8(-93),
+	}, {
+		val: int16(-93),
+	}, {
+		val: int32(-93),
+	}, {
+		val: int64(-93),
+	}, {
+		val: uint(93),
+	}, {
+		val: uint8(93),
+	}, {
+		val: uint16(93),
+	}, {
+		val: uint32(93),
+	}, {
+		val: uint64(93),
+	}, {
+		val: uintptr(93),
+	}, {
+		val: float32(93.76),
+	}, {
+		val: float64(93.76),
+	}, {
+		val: complex64(93i),
+		exp: `"(0+93i)"`,
+	}, {
+		val: complex128(93i),
+		exp: `"(0+93i)"`,
+	}, {
+		val: ptrint(93),
+	}, {
+		val: ptrstr("pstrval"),
+	}, {
+		val: []int{},
+	}, {
+		val: []int(nil),
+		exp: `[]`,
+	}, {
+		val: []int{9, 3, 7, 6},
+	}, {
+		val: []string{"str", "with\tescape"},
+	}, {
+		val: []substr{"substr", "with\tescape"},
+	}, {
+		val: [4]int{9, 3, 7, 6},
+	}, {
+		val: [2]string{"str", "with\tescape"},
+	}, {
+		val: [2]substr{"substr", "with\tescape"},
+	}, {
+		val: struct {
+			Int         int
+			notExported string
+			String      string
+		}{
+			93, "you should not see this", "seventy-six",
 		},
-		{
-			val: complex128(93i),
-			exp: `"(0+93i)"`,
+	}, {
+		val: map[string]int{},
+	}, {
+		val: map[string]int(nil),
+		exp: `{}`,
+	}, {
+		val: map[string]int{
+			"nine": 3,
 		},
-		{val: ptrint(93)},
-		{val: ptrstr("pstrval")},
-		{val: []int{}},
-		{
-			val: []int(nil),
-			exp: `[]`,
+	}, {
+		val: map[string]int{
+			"with\tescape": 76,
 		},
-		{val: []int{9, 3, 7, 6}},
-		{val: []string{"str", "with\tescape"}},
-		{val: []substr{"substr", "with\tescape"}},
-		{val: [4]int{9, 3, 7, 6}},
-		{val: [2]string{"str", "with\tescape"}},
-		{val: [2]substr{"substr", "with\tescape"}},
-		{
-			val: struct {
-				Int         int
-				notExported string
-				String      string
-			}{
-				93, "you should not see this", "seventy-six",
-			},
+	}, {
+		val: map[substr]int{
+			"nine": 3,
 		},
-		{val: map[string]int{}},
-		{
-			val: map[string]int(nil),
-			exp: `{}`,
+	}, {
+		val: map[substr]int{
+			"with\tescape": 76,
 		},
-		{
-			val: map[string]int{
-				"nine": 3,
-			},
+	}, {
+		val: map[int]int{
+			9: 3,
 		},
-		{
-			val: map[string]int{
-				"with\tescape": 76,
-			},
+	}, {
+		val: map[float64]int{
+			9.5: 3,
 		},
-		{
-			val: map[substr]int{
-				"nine": 3,
-			},
+		exp: `{"9.5":3}`,
+	}, {
+		val: map[point]int{
+			{x: 1, y: 2}: 3,
 		},
-		{
-			val: map[substr]int{
-				"with\tescape": 76,
-			},
+	}, {
+		val: map[pointErr]int{
+			{x: 1, y: 2}: 3,
 		},
-		{
-			val: map[int]int{
-				9: 3,
-			},
+		exp: `{"<error-MarshalText: uh oh: 1, 2>":3}`,
+	}, {
+		val: struct {
+			X int `json:"x"`
+			Y int `json:"y"`
+		}{
+			93, 76,
 		},
-		{
-			val: map[float64]int{
-				9.5: 3,
-			},
-			exp: `{"9.5":3}`,
+	}, {
+		val: struct {
+			X []int
+			Y map[int]int
+			Z struct{ P, Q int }
+		}{
+			[]int{9, 3, 7, 6},
+			map[int]int{9: 3},
+			struct{ P, Q int }{9, 3},
 		},
-		{
-			val: map[point]int{
-				{x: 1, y: 2}: 3,
-			},
+	}, {
+		val: []struct{ X, Y string }{
+			{"nine", "three"},
+			{"seven", "six"},
+			{"with\t", "\tescapes"},
 		},
-		{
-			val: map[pointErr]int{
-				{x: 1, y: 2}: 3,
-			},
-			exp: `{"<error-MarshalText: uh oh: 1, 2>":3}`,
+	}, {
+		val: struct {
+			A *int
+			B *int
+			C interface{}
+			D interface{}
+		}{
+			B: ptrint(1),
+			D: interface{}(2),
 		},
-		{
-			val: struct {
-				X int `json:"x"`
-				Y int `json:"y"`
-			}{
-				93, 76,
-			},
+	}, {
+		val: Tmarshaler{"foobar"},
+		exp: `{"Inner":"I am a logr.Marshaler"}`,
+	}, {
+		val: &Tmarshaler{"foobar"},
+		exp: `{"Inner":"I am a logr.Marshaler"}`,
+	}, {
+		val: (*Tmarshaler)(nil),
+		exp: `"<panic: value method github.com/go-logr/logr/funcr.Tmarshaler.MarshalLog called using nil *Tmarshaler pointer>"`,
+	}, {
+		val: Tmarshalerpanic{"foobar"},
+		exp: `"<panic: Tmarshalerpanic>"`,
+	}, {
+		val: Tstringer{"foobar"},
+		exp: `"I am a fmt.Stringer"`,
+	}, {
+		val: &Tstringer{"foobar"},
+		exp: `"I am a fmt.Stringer"`,
+	}, {
+		val: (*Tstringer)(nil),
+		exp: `"<panic: value method github.com/go-logr/logr/funcr.Tstringer.String called using nil *Tstringer pointer>"`,
+	}, {
+		val: Tstringerpanic{"foobar"},
+		exp: `"<panic: Tstringerpanic>"`,
+	}, {
+		val: Terror{"foobar"},
+		exp: `"I am an error"`,
+	}, {
+		val: &Terror{"foobar"},
+		exp: `"I am an error"`,
+	}, {
+		val: (*Terror)(nil),
+		exp: `"<panic: value method github.com/go-logr/logr/funcr.Terror.Error called using nil *Terror pointer>"`,
+	}, {
+		val: Terrorpanic{"foobar"},
+		exp: `"<panic: Terrorpanic>"`,
+	}, {
+		val: TjsontagsString{
+			String1: "v1",
+			String2: "v2",
+			String3: "v3",
+			String4: "v4",
+			String5: "v5",
+			String6: "v6",
 		},
-		{
-			val: struct {
-				X []int
-				Y map[int]int
-				Z struct{ P, Q int }
-			}{
-				[]int{9, 3, 7, 6},
-				map[int]int{9: 3},
-				struct{ P, Q int }{9, 3},
-			},
+	}, {
+		val: TjsontagsString{},
+	}, {
+		val: TjsontagsBool{
+			Bool1: true,
+			Bool2: true,
+			Bool3: true,
+			Bool4: true,
+			Bool5: true,
+			Bool6: true,
 		},
-		{
-			val: []struct{ X, Y string }{
-				{"nine", "three"},
-				{"seven", "six"},
-				{"with\t", "\tescapes"},
-			},
+	}, {
+		val: TjsontagsBool{},
+	}, {
+		val: TjsontagsInt{
+			Int1: 1,
+			Int2: 2,
+			Int3: 3,
+			Int4: 4,
+			Int5: 5,
+			Int6: 6,
 		},
-		{
-			val: struct {
-				A *int
-				B *int
-				C interface{}
-				D interface{}
-			}{
-				B: ptrint(1),
-				D: interface{}(2),
-			},
+	}, {
+		val: TjsontagsInt{},
+	}, {
+		val: TjsontagsUint{
+			Uint1: 1,
+			Uint2: 2,
+			Uint3: 3,
+			Uint4: 4,
+			Uint5: 5,
+			Uint6: 6,
 		},
-		{
-			val: Tmarshaler{"foobar"},
-			exp: `{"Inner":"I am a logr.Marshaler"}`,
+	}, {
+		val: TjsontagsUint{},
+	}, {
+		val: TjsontagsFloat{
+			Float1: 1.1,
+			Float2: 2.2,
+			Float3: 3.3,
+			Float4: 4.4,
+			Float5: 5.5,
+			Float6: 6.6,
 		},
-		{
-			val: &Tmarshaler{"foobar"},
-			exp: `{"Inner":"I am a logr.Marshaler"}`,
+	}, {
+		val: TjsontagsFloat{},
+	}, {
+		val: TjsontagsComplex{
+			Complex1: 1i,
+			Complex2: 2i,
+			Complex3: 3i,
+			Complex4: 4i,
+			Complex5: 5i,
+			Complex6: 6i,
 		},
-		{
-			val: (*Tmarshaler)(nil),
-			exp: `"<panic: value method github.com/go-logr/logr/funcr.Tmarshaler.MarshalLog called using nil *Tmarshaler pointer>"`,
+		exp: `{"complex1":"(0+1i)","-":"(0+3i)","complex4":"(0+4i)","Complex5":"(0+5i)","Complex6":"(0+6i)"}`,
+	}, {
+		val: TjsontagsComplex{},
+		exp: `{"complex1":"(0+0i)","-":"(0+0i)","Complex5":"(0+0i)"}`,
+	}, {
+		val: TjsontagsPtr{
+			Ptr1: newStr("1"),
+			Ptr2: newStr("2"),
+			Ptr3: newStr("3"),
+			Ptr4: newStr("4"),
+			Ptr5: newStr("5"),
+			Ptr6: newStr("6"),
 		},
-		{
-			val: Tmarshalerpanic{"foobar"},
-			exp: `"<panic: Tmarshalerpanic>"`,
+	}, {
+		val: TjsontagsPtr{},
+	}, {
+		val: TjsontagsArray{
+			Array1: [2]string{"v1", "v1"},
+			Array2: [2]string{"v2", "v2"},
+			Array3: [2]string{"v3", "v3"},
+			Array4: [2]string{"v4", "v4"},
+			Array5: [2]string{"v5", "v5"},
+			Array6: [2]string{"v6", "v6"},
 		},
-		{
-			val: Tstringer{"foobar"},
-			exp: `"I am a fmt.Stringer"`,
+	}, {
+		val: TjsontagsArray{},
+	}, {
+		val: TjsontagsSlice{
+			Slice1: []string{"v1", "v1"},
+			Slice2: []string{"v2", "v2"},
+			Slice3: []string{"v3", "v3"},
+			Slice4: []string{"v4", "v4"},
+			Slice5: []string{"v5", "v5"},
+			Slice6: []string{"v6", "v6"},
 		},
-		{
-			val: &Tstringer{"foobar"},
-			exp: `"I am a fmt.Stringer"`,
+	}, {
+		val: TjsontagsSlice{},
+		exp: `{"slice1":[],"-":[],"Slice5":[]}`,
+	}, {
+		val: TjsontagsMap{
+			Map1: map[string]string{"k1": "v1"},
+			Map2: map[string]string{"k2": "v2"},
+			Map3: map[string]string{"k3": "v3"},
+			Map4: map[string]string{"k4": "v4"},
+			Map5: map[string]string{"k5": "v5"},
+			Map6: map[string]string{"k6": "v6"},
 		},
-		{
-			val: (*Tstringer)(nil),
-			exp: `"<panic: value method github.com/go-logr/logr/funcr.Tstringer.String called using nil *Tstringer pointer>"`,
+	}, {
+		val: TjsontagsMap{},
+		exp: `{"map1":{},"-":{},"Map5":{}}`,
+	}, {
+		val: Tembedstruct{},
+	}, {
+		val: Tembednonstruct{},
+		exp: `{"Tinnerint":0,"Tinnermap":{},"Tinnerslice":[]}`,
+	}, {
+		val: Tembedjsontags{},
+	}, {
+		val: PseudoStruct(makeKV("f1", 1, "f2", true, "f3", []int{})),
+		exp: `{"f1":1,"f2":true,"f3":[]}`,
+	}, {
+		val: map[TjsontagsString]int{
+			{String1: `"quoted"`, String4: `unquoted`}: 1,
 		},
-		{
-			val: Tstringerpanic{"foobar"},
-			exp: `"<panic: Tstringerpanic>"`,
+		exp: `{"{\"string1\":\"\\\"quoted\\\"\",\"-\":\"\",\"string4\":\"unquoted\",\"String5\":\"\"}":1}`,
+	}, {
+		val: map[TjsontagsInt]int{
+			{Int1: 1, Int2: 2}: 3,
 		},
-		{
-			val: Terror{"foobar"},
-			exp: `"I am an error"`,
+		exp: `{"{\"int1\":1,\"-\":0,\"Int5\":0}":3}`,
+	}, {
+		val: map[[2]struct{ S string }]int{
+			{{S: `"quoted"`}, {S: "unquoted"}}: 1,
 		},
-		{
-			val: &Terror{"foobar"},
-			exp: `"I am an error"`,
-		},
-		{
-			val: (*Terror)(nil),
-			exp: `"<panic: value method github.com/go-logr/logr/funcr.Terror.Error called using nil *Terror pointer>"`,
-		},
-		{
-			val: Terrorpanic{"foobar"},
-			exp: `"<panic: Terrorpanic>"`,
-		},
-		{
-			val: TjsontagsString{
-				String1: "v1",
-				String2: "v2",
-				String3: "v3",
-				String4: "v4",
-				String5: "v5",
-				String6: "v6",
-			},
-		},
-		{val: TjsontagsString{}},
-		{
-			val: TjsontagsBool{
-				Bool1: true,
-				Bool2: true,
-				Bool3: true,
-				Bool4: true,
-				Bool5: true,
-				Bool6: true,
-			},
-		},
-		{val: TjsontagsBool{}},
-		{
-			val: TjsontagsInt{
-				Int1: 1,
-				Int2: 2,
-				Int3: 3,
-				Int4: 4,
-				Int5: 5,
-				Int6: 6,
-			},
-		},
-		{val: TjsontagsInt{}},
-		{
-			val: TjsontagsUint{
-				Uint1: 1,
-				Uint2: 2,
-				Uint3: 3,
-				Uint4: 4,
-				Uint5: 5,
-				Uint6: 6,
-			},
-		},
-		{val: TjsontagsUint{}},
-		{
-			val: TjsontagsFloat{
-				Float1: 1.1,
-				Float2: 2.2,
-				Float3: 3.3,
-				Float4: 4.4,
-				Float5: 5.5,
-				Float6: 6.6,
-			},
-		},
-		{val: TjsontagsFloat{}},
-		{
-			val: TjsontagsComplex{
-				Complex1: 1i,
-				Complex2: 2i,
-				Complex3: 3i,
-				Complex4: 4i,
-				Complex5: 5i,
-				Complex6: 6i,
-			},
-			exp: `{"complex1":"(0+1i)","-":"(0+3i)","complex4":"(0+4i)","Complex5":"(0+5i)","Complex6":"(0+6i)"}`,
-		},
-		{
-			val: TjsontagsComplex{},
-			exp: `{"complex1":"(0+0i)","-":"(0+0i)","Complex5":"(0+0i)"}`,
-		},
-		{
-			val: TjsontagsPtr{
-				Ptr1: newStr("1"),
-				Ptr2: newStr("2"),
-				Ptr3: newStr("3"),
-				Ptr4: newStr("4"),
-				Ptr5: newStr("5"),
-				Ptr6: newStr("6"),
-			},
-		},
-		{val: TjsontagsPtr{}},
-		{
-			val: TjsontagsArray{
-				Array1: [2]string{"v1", "v1"},
-				Array2: [2]string{"v2", "v2"},
-				Array3: [2]string{"v3", "v3"},
-				Array4: [2]string{"v4", "v4"},
-				Array5: [2]string{"v5", "v5"},
-				Array6: [2]string{"v6", "v6"},
-			},
-		},
-		{val: TjsontagsArray{}},
-		{
-			val: TjsontagsSlice{
-				Slice1: []string{"v1", "v1"},
-				Slice2: []string{"v2", "v2"},
-				Slice3: []string{"v3", "v3"},
-				Slice4: []string{"v4", "v4"},
-				Slice5: []string{"v5", "v5"},
-				Slice6: []string{"v6", "v6"},
-			},
-		},
-		{
-			val: TjsontagsSlice{},
-			exp: `{"slice1":[],"-":[],"Slice5":[]}`,
-		},
-		{
-			val: TjsontagsMap{
-				Map1: map[string]string{"k1": "v1"},
-				Map2: map[string]string{"k2": "v2"},
-				Map3: map[string]string{"k3": "v3"},
-				Map4: map[string]string{"k4": "v4"},
-				Map5: map[string]string{"k5": "v5"},
-				Map6: map[string]string{"k6": "v6"},
-			},
-		},
-		{
-			val: TjsontagsMap{},
-			exp: `{"map1":{},"-":{},"Map5":{}}`,
-		},
-		{val: Tembedstruct{}},
-		{
-			val: Tembednonstruct{},
-			exp: `{"Tinnerint":0,"Tinnermap":{},"Tinnerslice":[]}`,
-		},
-		{val: Tembedjsontags{}},
-		{
-			val: PseudoStruct(makeKV("f1", 1, "f2", true, "f3", []int{})),
-			exp: `{"f1":1,"f2":true,"f3":[]}`,
-		},
-		{
-			val: map[TjsontagsString]int{
-				{String1: `"quoted"`, String4: `unquoted`}: 1,
-			},
-			exp: `{"{\"string1\":\"\\\"quoted\\\"\",\"-\":\"\",\"string4\":\"unquoted\",\"String5\":\"\"}":1}`,
-		},
-		{
-			val: map[TjsontagsInt]int{
-				{Int1: 1, Int2: 2}: 3,
-			},
-			exp: `{"{\"int1\":1,\"-\":0,\"Int5\":0}":3}`,
-		},
-		{
-			val: map[[2]struct{ S string }]int{
-				{{S: `"quoted"`}, {S: "unquoted"}}: 1,
-			},
-			exp: `{"[{\"S\":\"\\\"quoted\\\"\"},{\"S\":\"unquoted\"}]":1}`,
-		},
-	}
+		exp: `{"[{\"S\":\"\\\"quoted\\\"\"},{\"S\":\"unquoted\"}]":1}`,
+	}}
 
 	f := NewFormatter(Options{})
 	for i, tc := range cases {
