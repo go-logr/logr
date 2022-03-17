@@ -105,8 +105,10 @@ with higher verbosity means more (and less important) logs will be generated.
 There are implementations for the following logging libraries:
 
 - **a function** (can bridge to non-structured libraries): [funcr](https://github.com/go-logr/logr/tree/master/funcr)
+- **a testing.T** (for use in Go tests, with JSON-like output): [testr](https://github.com/go-logr/logr/tree/master/testr)
 - **github.com/google/glog**: [glogr](https://github.com/go-logr/glogr)
 - **k8s.io/klog** (for Kubernetes): [klogr](https://git.k8s.io/klog/klogr)
+- **a testing.T** (with klog-like text output): [ktesting](https://git.k8s.io/klog/ktesting)
 - **go.uber.org/zap**: [zapr](https://github.com/go-logr/zapr)
 - **log** (the Go standard library logger): [stdr](https://github.com/go-logr/stdr)
 - **github.com/sirupsen/logrus**: [logrusr](https://github.com/bombsimon/logrusr)
