@@ -59,12 +59,60 @@ func NewWithOptions(t *testing.T, opts Options) logr.Logger {
 	return logr.New(l)
 }
 
+// TestingT is an interface wrapper around testing.T, testing.B and testing.F.
+type TestingT interface {
+	Helper()
+	Log(args ...interface{})
+}
+
+// NewWithInterface returns a logr.Logger that prints through a
+// TestingT object.
+// In contrast to the simpler New, output formatting can be configured.
+func NewWithInterface(t TestingT, opts Options) logr.Logger {
+	l := &testloggerInterface{
+		Formatter: funcr.NewFormatter(funcr.Options{
+			LogTimestamp: opts.LogTimestamp,
+			Verbosity:    opts.Verbosity,
+		}),
+		t: t,
+	}
+	return logr.New(l)
+}
+
 // Underlier exposes access to the underlying testing.T instance. Since
 // callers only have a logr.Logger, they have to know which
 // implementation is in use, so this interface is less of an
 // abstraction and more of a way to test type conversion.
 type Underlier interface {
 	GetUnderlying() *testing.T
+}
+
+// UnderlierInterface exposes access to the underlying TestingT instance. Since
+// callers only have a logr.Logger, they have to know which
+// implementation is in use, so this interface is less of an
+// abstraction and more of a way to test type conversion.
+type UnderlierInterface interface {
+	GetUnderlying() TestingT
+}
+
+// Info logging implementation shared between testLogger and testLoggerInterface.
+func logInfo(t TestingT, formatInfo func(int, string, []interface{}) (string, string), level int, msg string, kvList ...interface{}) {
+	prefix, args := formatInfo(level, msg, kvList)
+	t.Helper()
+	if prefix != "" {
+		args = prefix + ": " + args
+	}
+	t.Log(args)
+}
+
+// Error logging implementation shared between testLogger and testLoggerInterface.
+func logError(t TestingT, formatError func(error, string, []interface{}) (string, string), err error, msg string, kvList ...interface{}) {
+	prefix, args := formatError(err, msg, kvList)
+	t.Helper()
+	if prefix != "" {
+		args = prefix + ": " + args
+	}
+	t.Log(args)
 }
 
 type testlogger struct {
@@ -87,26 +135,49 @@ func (l testlogger) GetCallStackHelper() func() {
 }
 
 func (l testlogger) Info(level int, msg string, kvList ...interface{}) {
-	prefix, args := l.FormatInfo(level, msg, kvList)
 	l.t.Helper()
-	if prefix != "" {
-		l.t.Logf("%s: %s", prefix, args)
-	} else {
-		l.t.Log(args)
-	}
+	logInfo(l.t, l.FormatInfo, level, msg, kvList...)
 }
 
 func (l testlogger) Error(err error, msg string, kvList ...interface{}) {
-	prefix, args := l.FormatError(err, msg, kvList)
 	l.t.Helper()
-	if prefix != "" {
-		l.t.Logf("%s: %s", prefix, args)
-	} else {
-		l.t.Log(args)
-	}
+	logError(l.t, l.FormatError, err, msg, kvList...)
 }
 
 func (l testlogger) GetUnderlying() *testing.T {
+	return l.t
+}
+
+type testloggerInterface struct {
+	funcr.Formatter
+	t TestingT
+}
+
+func (l testloggerInterface) WithName(name string) logr.LogSink {
+	l.Formatter.AddName(name)
+	return &l
+}
+
+func (l testloggerInterface) WithValues(kvList ...interface{}) logr.LogSink {
+	l.Formatter.AddValues(kvList)
+	return &l
+}
+
+func (l testloggerInterface) GetCallStackHelper() func() {
+	return l.t.Helper
+}
+
+func (l testloggerInterface) Info(level int, msg string, kvList ...interface{}) {
+	l.t.Helper()
+	logInfo(l.t, l.FormatInfo, level, msg, kvList...)
+}
+
+func (l testloggerInterface) Error(err error, msg string, kvList ...interface{}) {
+	l.t.Helper()
+	logError(l.t, l.FormatError, err, msg, kvList...)
+}
+
+func (l testloggerInterface) GetUnderlying() TestingT {
 	return l.t
 }
 
@@ -114,3 +185,7 @@ func (l testlogger) GetUnderlying() *testing.T {
 var _ logr.LogSink = &testlogger{}
 var _ logr.CallStackHelperLogSink = &testlogger{}
 var _ Underlier = &testlogger{}
+
+var _ logr.LogSink = &testloggerInterface{}
+var _ logr.CallStackHelperLogSink = &testloggerInterface{}
+var _ UnderlierInterface = &testloggerInterface{}
