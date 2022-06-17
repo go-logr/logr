@@ -169,7 +169,7 @@ limitations under the License.
 //
 // Logger grants access to the sink to enable type assertions like this:
 //   func DoSomethingWithImpl(log logr.Logger) {
-//       if underlier, ok := log.GetSink()(impl.Underlier) {
+//       if underlier, ok := log.GetSink().(impl.Underlier); ok {
 //          implLogger := underlier.GetUnderlying()
 //          ...
 //       }
@@ -181,7 +181,7 @@ limitations under the License.
 //   // new logger with that modified sink.  It does nothing for loggers where
 //   // the sink doesn't support that parameter.
 //   func WithFoobar(log logr.Logger, foobar int) logr.Logger {
-//      if foobarLogSink, ok := log.GetSink()(FoobarSink); ok {
+//      if foobarLogSink, ok := log.GetSink().(FoobarSink); ok {
 //         log = log.WithSink(foobarLogSink.WithFooBar(foobar))
 //      }
 //      return log
