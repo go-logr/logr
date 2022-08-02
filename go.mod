@@ -1,3 +1,3 @@
-module github.com/go-logr/logr
+module github.com/sfc-gh-jchacon/logr
 
 go 1.16
