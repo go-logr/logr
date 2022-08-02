@@ -506,7 +506,13 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32, depth int) s
 		// it as [X,Y,Z,...] which isn't terribly useful vs the string form you really want.
 		if f.outputFormat == outputJSON {
 			if rm, ok := value.(json.RawMessage); ok {
-				buf.Write(rm)
+				// If it's empty make sure we emit an empty value as the array style would below.
+				if len(rm) > 0 {
+					buf.Write(rm)
+				} else {
+					buf.WriteByte('{')
+					buf.WriteByte('}')
+				}
 				return buf.String()
 			}
 		}
