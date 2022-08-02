@@ -37,6 +37,7 @@ package funcr
 import (
 	"bytes"
 	"encoding"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -500,6 +501,15 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32, depth int) s
 		}
 		return buf.String()
 	case reflect.Slice, reflect.Array:
+		// If this is emitting json make sure this isn't really a json.RawMessage. If so
+		// we can just emit "as-is" and don't pretty it as that will just escape it which
+		// defeats the purpose.
+		if f.outputFormat == outputJSON {
+			if rm, ok := value.(json.RawMessage); ok {
+				buf.Write(rm)
+				return buf.String()
+			}
+		}
 		buf.WriteByte('[')
 		for i := 0; i < v.Len(); i++ {
 			if i > 0 {
