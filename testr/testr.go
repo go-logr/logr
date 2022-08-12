@@ -116,7 +116,7 @@ type testlogger struct {
 }
 
 func (l testlogger) GetUnderlying() *testing.T {
-	return l.t.(*testing.T)
+	return l.t.(*testing.T) //nolint:forcetypeassert
 }
 
 type testloggerInterface struct {
