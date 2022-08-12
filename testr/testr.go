@@ -27,11 +27,7 @@ import (
 // New returns a logr.Logger that prints through a testing.T object.
 // Info logs are only enabled at V(0).
 func New(t *testing.T) logr.Logger {
-	l := &testlogger{
-		Formatter: funcr.NewFormatter(funcr.Options{}),
-		t:         t,
-	}
-	return logr.New(l)
+	return NewWithOptions(t, Options{})
 }
 
 // Options carries parameters which influence the way logs are generated.
@@ -50,11 +46,7 @@ type Options struct {
 // In contrast to the simpler New, output formatting can be configured.
 func NewWithOptions(t *testing.T, opts Options) logr.Logger {
 	l := &testlogger{
-		Formatter: funcr.NewFormatter(funcr.Options{
-			LogTimestamp: opts.LogTimestamp,
-			Verbosity:    opts.Verbosity,
-		}),
-		t: t,
+		testloggerInterface: newLoggerInterfaceWithOptions(t, opts),
 	}
 	return logr.New(l)
 }
@@ -69,14 +61,18 @@ type TestingT interface {
 // TestingT object.
 // In contrast to the simpler New, output formatting can be configured.
 func NewWithInterface(t TestingT, opts Options) logr.Logger {
-	l := &testloggerInterface{
+	l := newLoggerInterfaceWithOptions(t, opts)
+	return logr.New(&l)
+}
+
+func newLoggerInterfaceWithOptions(t TestingT, opts Options) testloggerInterface {
+	return testloggerInterface{
+		t: t,
 		Formatter: funcr.NewFormatter(funcr.Options{
 			LogTimestamp: opts.LogTimestamp,
 			Verbosity:    opts.Verbosity,
 		}),
-		t: t,
 	}
-	return logr.New(l)
 }
 
 // Underlier exposes access to the underlying testing.T instance. Since
@@ -116,36 +112,11 @@ func logError(t TestingT, formatError func(error, string, []interface{}) (string
 }
 
 type testlogger struct {
-	funcr.Formatter
-	t *testing.T
-}
-
-func (l testlogger) WithName(name string) logr.LogSink {
-	l.Formatter.AddName(name)
-	return &l
-}
-
-func (l testlogger) WithValues(kvList ...interface{}) logr.LogSink {
-	l.Formatter.AddValues(kvList)
-	return &l
-}
-
-func (l testlogger) GetCallStackHelper() func() {
-	return l.t.Helper
-}
-
-func (l testlogger) Info(level int, msg string, kvList ...interface{}) {
-	l.t.Helper()
-	logInfo(l.t, l.FormatInfo, level, msg, kvList...)
-}
-
-func (l testlogger) Error(err error, msg string, kvList ...interface{}) {
-	l.t.Helper()
-	logError(l.t, l.FormatError, err, msg, kvList...)
+	testloggerInterface
 }
 
 func (l testlogger) GetUnderlying() *testing.T {
-	return l.t
+	return l.t.(*testing.T)
 }
 
 type testloggerInterface struct {

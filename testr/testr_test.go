@@ -41,7 +41,7 @@ func TestLogger(t *testing.T) {
 
 	underlier, ok := log.GetSink().(Underlier)
 	if !ok {
-		t.Error("couldn't get underlier")
+		t.Fatal("couldn't get underlier")
 	}
 	if t != underlier.GetUnderlying() {
 		t.Error("invalid underlier")
