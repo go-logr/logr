@@ -244,7 +244,7 @@ type Logger struct {
 // Enabled tests whether this Logger is enabled.  For example, commandline
 // flags might be used to set the logging verbosity and disable some info logs.
 func (l Logger) Enabled() bool {
-	return l.sink.Enabled(l.level)
+	return l.sink != nil && l.sink.Enabled(l.level)
 }
 
 // Info logs a non-error message with the given key/value pairs as context.
@@ -273,6 +273,9 @@ func (l Logger) Info(msg string, keysAndValues ...interface{}) {
 // triggered this log line, if present. The err parameter is optional
 // and nil may be passed instead of an error instance.
 func (l Logger) Error(err error, msg string, keysAndValues ...interface{}) {
+	if l.sink == nil {
+		return
+	}
 	if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
 		withHelper.GetCallStackHelper()()
 	}
@@ -294,6 +297,9 @@ func (l Logger) V(level int) Logger {
 // WithValues returns a new Logger instance with additional key/value pairs.
 // See Info for documentation on how key/value pairs work.
 func (l Logger) WithValues(keysAndValues ...interface{}) Logger {
+	if l.sink == nil {
+		return l
+	}
 	l.setSink(l.sink.WithValues(keysAndValues...))
 	return l
 }
@@ -304,6 +310,9 @@ func (l Logger) WithValues(keysAndValues ...interface{}) Logger {
 // contain only letters, digits, and hyphens (see the package documentation for
 // more information).
 func (l Logger) WithName(name string) Logger {
+	if l.sink == nil {
+		return l
+	}
 	l.setSink(l.sink.WithName(name))
 	return l
 }
@@ -355,6 +364,11 @@ func (l Logger) WithCallStackHelper() (func(), Logger) {
 		helper = func() {}
 	}
 	return helper, l
+}
+
+// IsZero returns true if this logger is an uninitialized zero value
+func (l Logger) IsZero() bool {
+	return l.sink == nil
 }
 
 // contextKey is how we find Loggers in a context.Context.
