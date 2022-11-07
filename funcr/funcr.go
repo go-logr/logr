@@ -510,8 +510,7 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32, depth int) s
 				if len(rm) > 0 {
 					buf.Write(rm)
 				} else {
-					buf.WriteByte('{')
-					buf.WriteByte('}')
+					buf.WriteString("null")
 				}
 				return buf.String()
 			}
