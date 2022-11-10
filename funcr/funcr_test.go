@@ -766,11 +766,6 @@ func TestRender(t *testing.T) {
 		args:       makeKV("key", &Trawjson{}),
 		expectKV:   `"key"={"message":[]}`,
 		expectJSON: `{"key":{"message":null}}`,
-	}, {
-		name:       "byte array not json.RawMessage",
-		args:       makeKV("key", []byte{1, 2, 3, 4}),
-		expectKV:   `"key"=[1,2,3,4]`,
-		expectJSON: `{"key":[1,2,3,4]}`,
 	}}
 
 	for _, tc := range testCases {
