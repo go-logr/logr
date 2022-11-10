@@ -21,13 +21,13 @@ limitations under the License.
 // github.com/go-logr/logr.LogSink with output through an arbitrary
 // "write" function.  See New and NewJSON for details.
 //
-// Custom LogSinks
+// # Custom LogSinks
 //
 // For users who need more control, a funcr.Formatter can be embedded inside
 // your own custom LogSink implementation. This is useful when the LogSink
 // needs to implement additional methods, for example.
 //
-// Formatting
+// # Formatting
 //
 // This will respect logr.Marshaler, fmt.Stringer, and error interfaces for
 // values which are being logged.  When rendering a struct, funcr will use Go's
