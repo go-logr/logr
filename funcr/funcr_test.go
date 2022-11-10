@@ -230,6 +230,10 @@ type Tembedjsontags struct {
 	Tinner6 `json:"inner6,omitempty"`
 }
 
+type Trawjson struct {
+	Message json.RawMessage `json:"message"`
+}
+
 func TestPretty(t *testing.T) {
 	// used below
 	newStr := func(s string) *string {
@@ -669,6 +673,15 @@ func makeKV(args ...interface{}) []interface{} {
 }
 
 func TestRender(t *testing.T) {
+	// used below
+	raw := &Trawjson{}
+	marshal := &TjsontagsInt{}
+	var err error
+	raw.Message, err = json.Marshal(marshal)
+	if err != nil {
+		t.Fatalf("json.Marshal error: %v", err)
+	}
+
 	testCases := []struct {
 		name       string
 		builtins   []interface{}
@@ -738,6 +751,21 @@ func TestRender(t *testing.T) {
 		}{"arg", 789}, "val"),
 		expectKV:   `"<non-string-key: {"F1":"builtin",>"="val" "<non-string-key: {\"F1\":\"value\",\"F>"="val" "<non-string-key: {\"F1\":\"arg\",\"F2\">"="val"`,
 		expectJSON: `{"<non-string-key: {"F1":"builtin",>":"val","<non-string-key: {\"F1\":\"value\",\"F>":"val","<non-string-key: {\"F1\":\"arg\",\"F2\">":"val"}`,
+	}, {
+		name:       "json rendering with json.RawMessage",
+		args:       makeKV("key", raw),
+		expectKV:   `"key"={"message":[123,34,105,110,116,49,34,58,48,44,34,45,34,58,48,44,34,73,110,116,53,34,58,48,125]}`,
+		expectJSON: `{"key":{"message":{"int1":0,"-":0,"Int5":0}}}`,
+	}, {
+		name:       "byte array not json.RawMessage",
+		args:       makeKV("key", []byte{1, 2, 3, 4}),
+		expectKV:   `"key"=[1,2,3,4]`,
+		expectJSON: `{"key":[1,2,3,4]}`,
+	}, {
+		name:       "json rendering with empty json.RawMessage",
+		args:       makeKV("key", &Trawjson{}),
+		expectKV:   `"key"={"message":[]}`,
+		expectJSON: `{"key":{"message":null}}`,
 	}}
 
 	for _, tc := range testCases {
