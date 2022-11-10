@@ -765,7 +765,7 @@ func TestRender(t *testing.T) {
 		name:       "json rendering with empty json.RawMessage",
 		args:       makeKV("key", &Trawjson{}),
 		expectKV:   `"key"={"message":[]}`,
-		expectJSON: `{"key":{"message":{}}}`,
+		expectJSON: `{"key":{"message":null}}`,
 	}, {
 		name:       "byte array not json.RawMessage",
 		args:       makeKV("key", []byte{1, 2, 3, 4}),
