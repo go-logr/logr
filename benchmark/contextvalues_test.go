@@ -50,7 +50,11 @@ var variants = []struct {
 		// One key/value pair injected through WithValues after retrieval from context.
 		name:            "WithValuesAfter",
 		withValuesAfter: []interface{}{"after", "abc"},
-		expectedOutput:  `{"logger":"","level":0,"msg":"ping","i":1,"j":2,"after":"abc","string":"hello world","int":1,"float":1}`,
+		// The"i+j" keys from context get added the LogSink on demand
+		// when Info runs while "after" gets added through an explicit
+		// WithValues. This changes the order compared to the approach
+		// where WithValues("i", ..., "j", ...) is used.
+		expectedOutput: `{"logger":"","level":0,"msg":"ping","after":"abc","i":1,"j":2,"string":"hello world","int":1,"float":1}`,
 	},
 	{
 		// A name gets added after retrieval from the context. The
@@ -65,7 +69,7 @@ var variants = []struct {
 		name:            "WithNameAndValuesAfter",
 		withName:        "some-logger",
 		withValuesAfter: []interface{}{"after", "abc"},
-		expectedOutput:  `{"logger":"some-logger","level":0,"msg":"ping","i":1,"j":2,"after":"abc","string":"hello world","int":1,"float":1}`,
+		expectedOutput:  `{"logger":"some-logger","level":0,"msg":"ping","after":"abc","i":1,"j":2,"string":"hello world","int":1,"float":1}`,
 	},
 	{
 		// A name gets added after retrieval from the context and values before.
@@ -152,15 +156,19 @@ func BenchmarkNewContextMany(b *testing.B) {
 type contextKey1 struct{}
 type contextKey2 struct{}
 
+func fromContext(ctx context.Context) []interface{} {
+	value1 := ctx.Value(contextKey1{})
+	value2 := ctx.Value(contextKey2{})
+	if value1 == nil || value2 == nil {
+		// Should never happen during these tests.
+		panic("failed to retrieve both values")
+	}
+	return []interface{}{"i", value1, "j", value2}
+}
+
 func run(ctx context.Context, op func(ctx context.Context)) {
-	// This is the currently recommended way of adding a value to a context
-	// and ensuring that all future log calls include it.  Trace IDs might
-	// get handled like this.
-	logger := loggerFromContextOrDie(ctx)
-	logger = logger.WithValues("i", 1, "j", 2)
 	ctx = context.WithValue(ctx, contextKey1{}, 1)
 	ctx = context.WithValue(ctx, contextKey2{}, 2)
-	ctx = logr.NewContext(ctx, logger)
 	op(ctx)
 }
 
@@ -210,6 +218,8 @@ func setup(tb testing.TB, expectedCalls int64, expectedOutput string, withValues
 	if len(withValues) > 0 {
 		logger = logger.WithValues(withValues...)
 	}
+
+	logger = logger.WithContextValues(fromContext)
 	return logr.NewContext(context.Background(), logger)
 }
 

@@ -17,6 +17,7 @@ limitations under the License.
 package logr
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
@@ -50,5 +51,13 @@ func TestComparable(t *testing.T) {
 	c := Discard().V(2)
 	if b != c {
 		t.Fatal("any two discard Loggers must be equal")
+	}
+
+	if b := a.WithContextValues(func(ctx context.Context) []interface{} { return nil }); b != a {
+		t.Fatalf("Discard logger should not get modified by WithContextValues, but it was: %+v", b)
+	}
+
+	if b := a.WithContext(context.Background()); b != a {
+		t.Fatalf("Discard logger should not get modified by WithContext, but it was: %+v", b)
 	}
 }
