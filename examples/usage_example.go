@@ -35,31 +35,31 @@ import (
 
 var objectMap = map[string]Object{
 	"obj1": Object{
-		Name: "obj1",
-		Kind: "one",
+		Name:    "obj1",
+		Kind:    "one",
 		Details: 33,
 	},
 	"obj2": Object{
-		Name: "obj2",
-		Kind: "two",
+		Name:    "obj2",
+		Kind:    "two",
 		Details: "hi",
 	},
 	"obj3": Object{
-		Name: "obj3",
-		Kind: "one",
+		Name:    "obj3",
+		Kind:    "one",
 		Details: 1,
 	},
 }
 
 type Object struct {
-	Name string
-	Kind string
+	Name    string
+	Kind    string
 	Details interface{}
 }
 
 type Client struct {
 	objects map[string]Object
-	log logr.Logger
+	log     logr.Logger
 }
 
 func (c *Client) Get(key string) (Object, error) {
@@ -82,7 +82,7 @@ func (c *Client) Save(obj Object) error {
 }
 
 func (c *Client) WatchNext() string {
-	time.Sleep(2*time.Second)
+	time.Sleep(2 * time.Second)
 
 	keyInd := rand.Intn(len(c.objects))
 
@@ -99,9 +99,9 @@ func (c *Client) WatchNext() string {
 }
 
 type Controller struct {
-	log logr.Logger
+	log          logr.Logger
 	expectedKind string
-	client *Client
+	client       *Client
 }
 
 func (c *Controller) Run() {
@@ -144,13 +144,13 @@ func (c *Controller) Run() {
 func NewController(log logr.Logger, objectKind string) *Controller {
 	ctrlLogger := log.WithName("controller").WithName(objectKind)
 	client := &Client{
-		log: ctrlLogger.WithName("client"),
+		log:     ctrlLogger.WithName("client"),
 		objects: objectMap,
 	}
 	return &Controller{
-		log: ctrlLogger,
+		log:          ctrlLogger,
 		expectedKind: objectKind,
-		client: client,
+		client:       client,
 	}
 }
 
