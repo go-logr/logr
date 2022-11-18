@@ -218,7 +218,7 @@ func newFormatter(opts Options, outfmt outputFormat) Formatter {
 		prefix:       "",
 		values:       nil,
 		depth:        0,
-		opts:         opts,
+		opts:         &opts,
 	}
 	return f
 }
@@ -232,7 +232,7 @@ type Formatter struct {
 	values       []interface{}
 	valuesStr    string
 	depth        int
-	opts         Options
+	opts         *Options
 }
 
 // outputFormat indicates which outputFormat to use.
