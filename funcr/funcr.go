@@ -448,6 +448,7 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32, depth int) s
 		if flags&flagRawStruct == 0 {
 			buf.WriteByte('{')
 		}
+		printComma := false // testing i>0 is not enough because of JSON omitted fields
 		for i := 0; i < t.NumField(); i++ {
 			fld := t.Field(i)
 			if fld.PkgPath != "" {
@@ -479,9 +480,10 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32, depth int) s
 			if omitempty && isEmpty(v.Field(i)) {
 				continue
 			}
-			if i > 0 {
+			if printComma {
 				buf.WriteByte(',')
 			}
+			printComma = true // if we got here, we are rendering a field
 			if fld.Anonymous && fld.Type.Kind() == reflect.Struct && name == "" {
 				buf.WriteString(f.prettyWithFlags(v.Field(i).Interface(), flags|flagRawStruct, depth+1))
 				continue

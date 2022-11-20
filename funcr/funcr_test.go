@@ -106,6 +106,7 @@ func (t Terrorpanic) Error() string {
 }
 
 type TjsontagsString struct {
+	String0 string `json:"-"`                 // first field ignored
 	String1 string `json:"string1"`           // renamed
 	String2 string `json:"-"`                 // ignored
 	String3 string `json:"-,"`                // named "-"
@@ -115,6 +116,7 @@ type TjsontagsString struct {
 }
 
 type TjsontagsBool struct {
+	Bool0 bool `json:"-"`               // first field ignored
 	Bool1 bool `json:"bool1"`           // renamed
 	Bool2 bool `json:"-"`               // ignored
 	Bool3 bool `json:"-,"`              // named "-"
@@ -124,6 +126,7 @@ type TjsontagsBool struct {
 }
 
 type TjsontagsInt struct {
+	Int0 int `json:"-"`              // first field ignored
 	Int1 int `json:"int1"`           // renamed
 	Int2 int `json:"-"`              // ignored
 	Int3 int `json:"-,"`             // named "-"
@@ -133,6 +136,7 @@ type TjsontagsInt struct {
 }
 
 type TjsontagsUint struct {
+	Uint0 int  `json:"-"`               // first field ignored
 	Uint1 uint `json:"uint1"`           // renamed
 	Uint2 uint `json:"-"`               // ignored
 	Uint3 uint `json:"-,"`              // named "-"
@@ -142,6 +146,7 @@ type TjsontagsUint struct {
 }
 
 type TjsontagsFloat struct {
+	Float0 float64 `json:"-"`                // first field ignored
 	Float1 float64 `json:"float1"`           // renamed
 	Float2 float64 `json:"-"`                // ignored
 	Float3 float64 `json:"-,"`               // named "-"
@@ -151,6 +156,7 @@ type TjsontagsFloat struct {
 }
 
 type TjsontagsComplex struct {
+	Complex0 complex128 `json:"-"`                  // first field ignored
 	Complex1 complex128 `json:"complex1"`           // renamed
 	Complex2 complex128 `json:"-"`                  // ignored
 	Complex3 complex128 `json:"-,"`                 // named "-"
@@ -160,6 +166,7 @@ type TjsontagsComplex struct {
 }
 
 type TjsontagsPtr struct {
+	Ptr0 *string `json:"-"`              // first field ignored
 	Ptr1 *string `json:"ptr1"`           // renamed
 	Ptr2 *string `json:"-"`              // ignored
 	Ptr3 *string `json:"-,"`             // named "-"
@@ -169,6 +176,7 @@ type TjsontagsPtr struct {
 }
 
 type TjsontagsArray struct {
+	Array0 [2]string `json:"-"`                // first field ignored
 	Array1 [2]string `json:"array1"`           // renamed
 	Array2 [2]string `json:"-"`                // ignored
 	Array3 [2]string `json:"-,"`               // named "-"
@@ -178,6 +186,7 @@ type TjsontagsArray struct {
 }
 
 type TjsontagsSlice struct {
+	Slice0 []string `json:"-"`                // first field ignored
 	Slice1 []string `json:"slice1"`           // renamed
 	Slice2 []string `json:"-"`                // ignored
 	Slice3 []string `json:"-,"`               // named "-"
@@ -187,6 +196,7 @@ type TjsontagsSlice struct {
 }
 
 type TjsontagsMap struct {
+	Map0 map[string]string `json:"-"`              // first field ignored
 	Map1 map[string]string `json:"map1"`           // renamed
 	Map2 map[string]string `json:"-"`              // ignored
 	Map3 map[string]string `json:"-,"`             // named "-"
