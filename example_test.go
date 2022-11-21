@@ -27,7 +27,7 @@ import (
 func NewStdoutLogger() logr.Logger {
 	return funcr.New(func(prefix, args string) {
 		if prefix != "" {
-			_ = fmt.Sprintf("%s: %s\n", prefix, args)
+			fmt.Printf("%s: %s\n", prefix, args)
 		} else {
 			fmt.Println(args)
 		}
@@ -43,4 +43,58 @@ func Example() {
 	// "level"=0 "msg"="default info log" "stringVal"="value" "intVal"=12345
 	// "level"=0 "msg"="V(0) info log" "stringVal"="value" "intVal"=12345
 	// "msg"="error log" "error"="an error" "stringVal"="value" "intVal"=12345
+}
+
+func ExampleLogger_Info() {
+	l := NewStdoutLogger()
+	l.Info("this is a V(0)-equivalent info log", "stringVal", "value", "intVal", 12345)
+	// Output:
+	// "level"=0 "msg"="this is a V(0)-equivalent info log" "stringVal"="value" "intVal"=12345
+}
+
+func ExampleLogger_Error() {
+	l := NewStdoutLogger()
+	l.Error(fmt.Errorf("the error"), "this is an error log", "stringVal", "value", "intVal", 12345)
+	l.Error(nil, "this is an error log with nil error", "stringVal", "value", "intVal", 12345)
+	// Output:
+	// "msg"="this is an error log" "error"="the error" "stringVal"="value" "intVal"=12345
+	// "msg"="this is an error log with nil error" "error"=null "stringVal"="value" "intVal"=12345
+}
+
+func ExampleLogger_WithName() {
+	l := NewStdoutLogger()
+	l = l.WithName("name1")
+	l.Info("this is an info log", "stringVal", "value", "intVal", 12345)
+	l = l.WithName("name2")
+	l.Info("this is an info log", "stringVal", "value", "intVal", 12345)
+	// Output:
+	// name1: "level"=0 "msg"="this is an info log" "stringVal"="value" "intVal"=12345
+	// name1/name2: "level"=0 "msg"="this is an info log" "stringVal"="value" "intVal"=12345
+}
+
+func ExampleLogger_WithValues() {
+	l := NewStdoutLogger()
+	l = l.WithValues("stringVal", "value", "intVal", 12345)
+	l = l.WithValues("boolVal", true)
+	l.Info("this is an info log", "floatVal", 3.1415)
+	// Output:
+	// "level"=0 "msg"="this is an info log" "stringVal"="value" "intVal"=12345 "boolVal"=true "floatVal"=3.1415
+}
+
+func ExampleLogger_V() {
+	l := NewStdoutLogger()
+	l.V(0).Info("V(0) info log")
+	l.V(1).Info("V(1) info log")
+	l.V(2).Info("V(2) info log")
+	// Output:
+	// "level"=0 "msg"="V(0) info log"
+}
+
+func ExampleLogger_Enabled() {
+	l := NewStdoutLogger()
+	if loggerV := l.V(5); loggerV.Enabled() {
+		// Do something expensive.
+		loggerV.Info("this is an expensive log message")
+	}
+	// Output:
 }
