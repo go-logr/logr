@@ -467,7 +467,7 @@ type LogSink interface {
 	WithName(name string) LogSink
 }
 
-// CallDepthLogSink represents a Logger that knows how to climb the call stack
+// CallDepthLogSink represents a LogSink that knows how to climb the call stack
 // to identify the original call site and can offset the depth by a specified
 // number of frames.  This is useful for users who have helper functions
 // between the "real" call site and the actual calls to Logger methods.
@@ -492,7 +492,7 @@ type CallDepthLogSink interface {
 	WithCallDepth(depth int) LogSink
 }
 
-// CallStackHelperLogSink represents a Logger that knows how to climb
+// CallStackHelperLogSink represents a LogSink that knows how to climb
 // the call stack to identify the original call site and can skip
 // intermediate helper functions if they mark themselves as
 // helper. Go's testing package uses that approach.
