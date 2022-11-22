@@ -419,6 +419,24 @@ func (f Formatter) prettyWithFlags(value interface{}, flags uint32, depth int) s
 			buf.WriteByte('}')
 		}
 		return buf.String()
+	case logr.KeysAndValues:
+		buf := bytes.NewBuffer(make([]byte, 0, 1024))
+		if flags&flagRawStruct == 0 {
+			buf.WriteByte('{')
+		}
+		for i, keyAndValue := range v {
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+			// arbitrary keys might need escaping
+			buf.WriteString(prettyString(keyAndValue.Key))
+			buf.WriteByte(':')
+			buf.WriteString(f.prettyWithFlags(keyAndValue.Value, 0, depth+1))
+		}
+		if flags&flagRawStruct == 0 {
+			buf.WriteByte('}')
+		}
+		return buf.String()
 	}
 
 	buf := bytes.NewBuffer(make([]byte, 0, 256))

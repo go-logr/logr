@@ -533,3 +533,19 @@ type Marshaler interface {
 	// It may return any value of any type.
 	MarshalLog() interface{}
 }
+
+// KeysAndValues is a special type that will get logged like a struct. The
+// main advantage is that keys and values can get constructed dynamically and
+// that some LogSinks may render it more nicely than plain structs.
+//
+// Not all LogSinks support this special type. Those that don't
+// will log it like an array.
+type KeysAndValues []KeyAndValue
+
+// KeyAndValue is one entry in KeysAndValues.
+type KeyAndValue struct {
+	// Key is used to log the value.
+	Key string
+	// Value is an arbitrary value that is to be logged.
+	Value interface{}
+}

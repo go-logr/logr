@@ -721,9 +721,16 @@ func TestRender(t *testing.T) {
 		name:       "pseudo structs",
 		builtins:   makeKV("int", PseudoStruct(makeKV("intsub", 1))),
 		values:     makeKV("str", PseudoStruct(makeKV("strsub", "2"))),
-		args:       makeKV("bool", PseudoStruct(makeKV("boolsub", true))),
-		expectKV:   `"int"={"intsub":1} "str"={"strsub":"2"} "bool"={"boolsub":true}`,
-		expectJSON: `{"int":{"intsub":1},"str":{"strsub":"2"},"bool":{"boolsub":true}}`,
+		args:       makeKV("many", PseudoStruct(makeKV("boolsub", true, "intsub", 1, "recursive", PseudoStruct(makeKV("sub", "level2"))))),
+		expectKV:   `"int"={"intsub":1} "str"={"strsub":"2"} "many"={"boolsub":true,"intsub":1,"recursive":{"sub":"level2"}}`,
+		expectJSON: `{"int":{"intsub":1},"str":{"strsub":"2"},"many":{"boolsub":true,"intsub":1,"recursive":{"sub":"level2"}}}`,
+	}, {
+		name:       "KeysAndValues",
+		builtins:   makeKV("int", logr.KeysAndValues{{"sub", 1}}),
+		values:     makeKV("str", logr.KeysAndValues{{"sub", "2"}}),
+		args:       makeKV("many", logr.KeysAndValues{{"boolsub", true}, {"intsub", 1}, {"recursive", logr.KeysAndValues{{"sub", "level2"}}}}),
+		expectKV:   `"int"={"sub":1} "str"={"sub":"2"} "many"={"boolsub":true,"intsub":1,"recursive":{"sub":"level2"}}`,
+		expectJSON: `{"int":{"sub":1},"str":{"sub":"2"},"many":{"boolsub":true,"intsub":1,"recursive":{"sub":"level2"}}}`,
 	}, {
 		name:       "escapes",
 		builtins:   makeKV("\"1\"", 1),     // will not be escaped, but should never happen
