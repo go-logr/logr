@@ -209,6 +209,7 @@ package logr
 
 import (
 	"context"
+	"sync/atomic"
 )
 
 // New returns a new Logger instance.  This is primarily used by libraries
@@ -227,6 +228,12 @@ func New(sink LogSink) Logger {
 // logger and thus is only safe to use for loggers that are not currently being
 // used concurrently.
 func (l *Logger) setSink(sink LogSink) {
+	if l.context != nil {
+		// Invalidate the cached result and create a new
+		// instance that then can cache the new sink.
+		// This has a nil value in sinkWithContextValues.
+		l.context = &contextMeta{ctx: l.context.ctx, readers: l.context.readers}
+	}
 	l.sink = sink
 }
 
@@ -315,6 +322,16 @@ type Logger struct {
 type contextMeta struct {
 	ctx     context.Context
 	readers []ContextReader
+
+	// sinkWithContextValues caches the result of WithValues for the
+	// Logger's sink. This is either unset (Load returns nil) or contains a
+	// LogSink that is derived from the Logger's sink with context values
+	// added via WithValues.
+	//
+	// Because this struct is access concurrently by different Logger
+	// instances, atomic.Value has to be used. As soon as one of them sets
+	// the cached sink, all others will start using it, too.
+	sinkWithContextValues atomic.Value
 }
 
 // Enabled tests whether this Logger is enabled.  For example, commandline
@@ -337,12 +354,7 @@ func (l Logger) Info(msg string, keysAndValues ...interface{}) {
 		if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
 			withHelper.GetCallStackHelper()()
 		}
-		sink := l.sink
-		contextKeysAndValues := l.valuesFromContext()
-		if len(contextKeysAndValues) > 0 {
-			sink = sink.WithValues(contextKeysAndValues...)
-		}
-		sink.Info(l.level, msg, keysAndValues...)
+		l.sinkWithContextValues().Info(l.level, msg, keysAndValues...)
 	}
 }
 
@@ -363,12 +375,35 @@ func (l Logger) Error(err error, msg string, keysAndValues ...interface{}) {
 	if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
 		withHelper.GetCallStackHelper()()
 	}
+	l.sinkWithContextValues().Error(err, msg, keysAndValues...)
+}
+
+// sinkWithContextValues builds a result from the original sink, which may have
+// user-defined pairs from WithValues(), and then adds pairs from context.
+// The result is cached for reuse by the same or other Logger instances that
+// share the same l.context instance.
+//
+// Every time we change the user-defined pairs, the context, or the reader
+// function(s), the cached result is discarded, and this path will be called
+// again.
+func (l Logger) sinkWithContextValues() LogSink {
+	if l.skipContextValues() {
+		return l.sink
+	}
+	if value := l.context.sinkWithContextValues.Load(); value != nil {
+		// We have done the steps below already, no need to repeat
+		// them.
+		return value.(LogSink) // nolint: forcetypeassert
+	}
 	sink := l.sink
 	contextKeysAndValues := l.valuesFromContext()
 	if len(contextKeysAndValues) > 0 {
 		sink = sink.WithValues(contextKeysAndValues...)
 	}
-	sink.Error(err, msg, keysAndValues...)
+	// Even if we didn't modify the sink, store it to enable
+	// taking the fast path above.
+	l.context.sinkWithContextValues.Store(sink)
+	return sink
 }
 
 // V returns a new Logger instance for a specific verbosity level, relative to
