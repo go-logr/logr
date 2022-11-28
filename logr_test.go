@@ -384,8 +384,8 @@ func TestContext(t *testing.T) {
 	}
 
 	out := FromContextOrDiscard(ctx)
-	if _, ok := out.sink.(discardLogSink); !ok {
-		t.Errorf("expected a discardLogSink, got %#v", out)
+	if out.sink != nil {
+		t.Errorf("expected a nil sink, got %#v", out)
 	}
 
 	sink := &testLogSink{}
@@ -412,11 +412,10 @@ func TestIsZero(t *testing.T) {
 	if l.IsZero() {
 		t.Errorf("expected not IsZero")
 	}
-	// Discard is not considered a zero unset logger, but an intentional choice
-	// to ignore messages that should not be overridden by a component.
+	// Discard is the same as a nil sink.
 	l = Discard()
-	if l.IsZero() {
-		t.Errorf("expected not IsZero")
+	if !l.IsZero() {
+		t.Errorf("expected IsZero")
 	}
 }
 

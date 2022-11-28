@@ -212,11 +212,14 @@ import (
 )
 
 // New returns a new Logger instance.  This is primarily used by libraries
-// implementing LogSink, rather than end users.
+// implementing LogSink, rather than end users.  Passing a nil sink will create
+// a Logger which discards all log lines.
 func New(sink LogSink) Logger {
 	logger := Logger{}
 	logger.setSink(sink)
-	sink.Init(runtimeInfo)
+	if sink != nil {
+		sink.Init(runtimeInfo)
+	}
 	return logger
 }
 
@@ -265,6 +268,9 @@ func (l Logger) Enabled() bool {
 // information.  The key/value pairs must alternate string keys and arbitrary
 // values.
 func (l Logger) Info(msg string, keysAndValues ...interface{}) {
+	if l.sink == nil {
+		return
+	}
 	if l.Enabled() {
 		if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
 			withHelper.GetCallStackHelper()()
@@ -298,6 +304,9 @@ func (l Logger) Error(err error, msg string, keysAndValues ...interface{}) {
 // level means a log message is less important.  Negative V-levels are treated
 // as 0.
 func (l Logger) V(level int) Logger {
+	if l.sink == nil {
+		return l
+	}
 	if level < 0 {
 		level = 0
 	}
@@ -344,6 +353,9 @@ func (l Logger) WithName(name string) Logger {
 // WithCallDepth(1) because it works with implementions that support the
 // CallDepthLogSink and/or CallStackHelperLogSink interfaces.
 func (l Logger) WithCallDepth(depth int) Logger {
+	if l.sink == nil {
+		return l
+	}
 	if withCallDepth, ok := l.sink.(CallDepthLogSink); ok {
 		l.setSink(withCallDepth.WithCallDepth(depth))
 	}
@@ -365,6 +377,9 @@ func (l Logger) WithCallDepth(depth int) Logger {
 // implementation does not support either of these, the original Logger will be
 // returned.
 func (l Logger) WithCallStackHelper() (func(), Logger) {
+	if l.sink == nil {
+		return func() {}, l
+	}
 	var helper func()
 	if withCallDepth, ok := l.sink.(CallDepthLogSink); ok {
 		l.setSink(withCallDepth.WithCallDepth(1))
