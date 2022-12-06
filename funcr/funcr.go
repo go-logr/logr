@@ -47,6 +47,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	funcrtypes "github.com/go-logr/logr/funcr/types"
 )
 
 // New returns a logr.Logger which is implemented by an arbitrary function.
@@ -246,7 +247,7 @@ const (
 )
 
 // PseudoStruct is a list of key-value pairs that gets logged as a struct.
-type PseudoStruct []interface{}
+type PseudoStruct = funcrtypes.PseudoStruct
 
 // render produces a log line, ready to use.
 func (f Formatter) render(builtins, args []interface{}) string {
