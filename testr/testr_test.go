@@ -18,6 +18,8 @@ package testr
 
 import (
 	"fmt"
+	"os"
+	"sync"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -86,4 +88,43 @@ func helper2(log logr.Logger, msg string) {
 	helper, log := log.WithCallStackHelper()
 	helper()
 	log.Info(msg)
+}
+
+var testStopWG sync.WaitGroup
+
+func TestMain(m *testing.M) {
+	exitCode := m.Run()
+	testStopWG.Wait()
+
+	os.Exit(exitCode)
+}
+
+func TestStop(t *testing.T) {
+	// This test is set up so that a subtest spawns a goroutine and that
+	// goroutine logs through ktesting *after* the subtest has
+	// completed. This is not supported by testing.T.Log and normally
+	// leads to:
+	//   panic: Log in goroutine after TestGoroutines/Sub has completed: INFO hello world
+	//
+	// It works with testr if (and only if) logging gets discarded
+	// before returning from the test.
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	testStopWG.Add(1)
+	logger := New(t)
+	go func() {
+		defer testStopWG.Done()
+
+		// Wait for test to have returned.
+		wg.Wait()
+
+		// This output must be discarded because the test has
+		// completed.
+		logger.Info("simple info message")
+		logger.Error(nil, "error message")
+		logger.WithName("me").WithValues("completed", true).Info("complex info message", "anotherValue", 1)
+	}()
+	// Allow goroutine above to proceed.
+	wg.Done()
 }

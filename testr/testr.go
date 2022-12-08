@@ -18,6 +18,7 @@ limitations under the License.
 package testr
 
 import (
+	"sync/atomic"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -57,6 +58,12 @@ type TestingT interface {
 	Log(args ...interface{})
 }
 
+// cleanupT is implemented by the t instances that we get, but we don't require
+// it in our API.
+type cleanupT interface {
+	Cleanup(func())
+}
+
 // NewWithInterface returns a logr.Logger that prints through a
 // TestingT object.
 // In contrast to the simpler New, output formatting can be configured.
@@ -65,20 +72,32 @@ func NewWithInterface(t TestingT, opts Options) logr.Logger {
 	return logr.New(&l)
 }
 
+var noT TestingT
+
 func newLoggerInterfaceWithOptions(t TestingT, opts Options) testloggerInterface {
-	return testloggerInterface{
-		t: t,
+	l := testloggerInterface{
+		t: new(atomic.Value),
 		Formatter: funcr.NewFormatter(funcr.Options{
 			LogTimestamp: opts.LogTimestamp,
 			Verbosity:    opts.Verbosity,
 		}),
 	}
+	l.t.Store(&t)
+	if cleanup, ok := t.(cleanupT); ok {
+		cleanup.Cleanup(func() {
+			// Cannot store nil.
+			l.t.Store(&noT)
+		})
+	}
+	return l
 }
 
 // Underlier exposes access to the underlying testing.T instance. Since
 // callers only have a logr.Logger, they have to know which
 // implementation is in use, so this interface is less of an
 // abstraction and more of a way to test type conversion.
+//
+// Returns nil when the test has already completed.
 type Underlier interface {
 	GetUnderlying() *testing.T
 }
@@ -87,6 +106,8 @@ type Underlier interface {
 // callers only have a logr.Logger, they have to know which
 // implementation is in use, so this interface is less of an
 // abstraction and more of a way to test type conversion.
+//
+// Returns nil when the test has already completed.
 type UnderlierInterface interface {
 	GetUnderlying() TestingT
 }
@@ -118,15 +139,24 @@ type testlogger struct {
 }
 
 func (l testlogger) GetUnderlying() *testing.T {
+	t := l.testloggerInterface.GetUnderlying()
+	if t == nil {
+		return nil
+	}
+
 	// This method is defined on testlogger, so the only type this could
 	// possibly be is testing.T, even though that's not guaranteed by the type
 	// system itself.
-	return l.t.(*testing.T) //nolint:forcetypeassert
+	return t.(*testing.T) //nolint:forcetypeassert
 }
 
 type testloggerInterface struct {
 	funcr.Formatter
-	t TestingT
+
+	// t will be cleared when the test is done because then t becomes
+	// unusable. In particular t.Log will panic with "Log in goroutine
+	// after ... has completed".
+	t *atomic.Value
 }
 
 func (l testloggerInterface) WithName(name string) logr.LogSink {
@@ -140,21 +170,41 @@ func (l testloggerInterface) WithValues(kvList ...interface{}) logr.LogSink {
 }
 
 func (l testloggerInterface) GetCallStackHelper() func() {
-	return l.t.Helper
+	t := l.GetUnderlying()
+	if t == nil {
+		return func() {}
+	}
+
+	return t.Helper
 }
 
 func (l testloggerInterface) Info(level int, msg string, kvList ...interface{}) {
-	l.t.Helper()
-	logInfo(l.t, l.FormatInfo, level, msg, kvList...)
+	t := l.GetUnderlying()
+	if t == nil {
+		return
+	}
+
+	t.Helper()
+	logInfo(t, l.FormatInfo, level, msg, kvList...)
 }
 
 func (l testloggerInterface) Error(err error, msg string, kvList ...interface{}) {
-	l.t.Helper()
-	logError(l.t, l.FormatError, err, msg, kvList...)
+	t := l.GetUnderlying()
+	if t == nil {
+		return
+	}
+
+	t.Helper()
+	logError(t, l.FormatError, err, msg, kvList...)
 }
 
 func (l testloggerInterface) GetUnderlying() TestingT {
-	return l.t
+	t := l.t.Load()
+	if t == &noT {
+		return nil
+	}
+	// This is the only type that this could possibly be.
+	return *t.(*TestingT) //nolint:forcetypeassert
 }
 
 // Assert conformance to the interfaces.
