@@ -71,7 +71,7 @@ func TestLoggerInterface(t *testing.T) {
 	}
 }
 
-func TestLoggerTestingB(t *testing.T) {
+func TestLoggerTestingB(_ *testing.T) {
 	b := &testing.B{}
 	_ = NewWithInterface(b, Options{})
 }

@@ -181,8 +181,8 @@ func BenchmarkDiscardWithName(b *testing.B) {
 	doWithName(b, log)
 }
 
-func noopKV(prefix, args string) {}
-func noopJSON(obj string)        {}
+func noopKV(_, _ string) {}
+func noopJSON(_ string)  {}
 
 func BenchmarkFuncrLogInfoOneArg(b *testing.B) {
 	var log logr.Logger = funcr.New(noopKV, funcr.Options{})
