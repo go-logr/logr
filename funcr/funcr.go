@@ -745,7 +745,7 @@ func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (pref
 }
 
 // FormatError renders an Error log message into strings.  The prefix will be
-// empty when no names were set (via AddNames),  or when the output is
+// empty when no names were set (via AddNames), or when the output is
 // configured for JSON.
 func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (prefix, argsStr string) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
@@ -766,7 +766,7 @@ func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (pre
 		loggableErr = err.Error()
 	}
 	args = append(args, "error", loggableErr)
-	return f.prefix, f.render(args, kvList)
+	return prefix, f.render(args, kvList)
 }
 
 // AddName appends the specified name.  funcr uses '/' characters to separate

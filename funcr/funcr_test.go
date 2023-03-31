@@ -867,212 +867,295 @@ type capture struct {
 }
 
 func (c *capture) Func(prefix, args string) {
-	c.log = prefix + " " + args
+	space := " "
+	if len(prefix) == 0 {
+		space = ""
+	}
+	c.log = prefix + space + args
 }
 
 func TestInfo(t *testing.T) {
 	testCases := []struct {
-		name   string
-		args   []interface{}
-		expect string
+		name       string
+		args       []interface{}
+		expectKV   string
+		expectJSON string
 	}{{
-		name:   "just msg",
-		args:   makeKV(),
-		expect: ` "level"=0 "msg"="msg"`,
+		name:       "just msg",
+		args:       makeKV(),
+		expectKV:   `"level"=0 "msg"="msg"`,
+		expectJSON: `{"logger":"","level":0,"msg":"msg"}`,
 	}, {
-		name:   "primitives",
-		args:   makeKV("int", 1, "str", "ABC", "bool", true),
-		expect: ` "level"=0 "msg"="msg" "int"=1 "str"="ABC" "bool"=true`,
+		name:       "primitives",
+		args:       makeKV("int", 1, "str", "ABC", "bool", true),
+		expectKV:   `"level"=0 "msg"="msg" "int"=1 "str"="ABC" "bool"=true`,
+		expectJSON: `{"logger":"","level":0,"msg":"msg","int":1,"str":"ABC","bool":true}`,
 	}}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cap := &capture{}
-			sink := newSink(cap.Func, NewFormatter(Options{}))
+		t.Run("KV: "+tc.name, func(t *testing.T) {
+			capt := &capture{}
+			sink := newSink(capt.Func, NewFormatter(Options{}))
 			sink.Info(0, "msg", tc.args...)
-			if cap.log != tc.expect {
-				t.Errorf("\nexpected %q\n     got %q", tc.expect, cap.log)
+			if capt.log != tc.expectKV {
+				t.Errorf("\nexpected %q\n     got %q", tc.expectKV, capt.log)
+			}
+		})
+		t.Run("JSON: "+tc.name, func(t *testing.T) {
+			capt := &capture{}
+			sink := newSink(capt.Func, NewFormatterJSON(Options{}))
+			sink.Info(0, "msg", tc.args...)
+			if capt.log != tc.expectJSON {
+				t.Errorf("\nexpected %q\n     got %q", tc.expectJSON, capt.log)
 			}
 		})
 	}
 }
 
 func TestInfoWithCaller(t *testing.T) {
-	t.Run("LogCaller=All", func(t *testing.T) {
-		cap := &capture{}
-		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: All}))
+	t.Run("KV: LogCaller=All", func(t *testing.T) {
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: All}))
 		sink.Info(0, "msg")
 		_, file, line, _ := runtime.Caller(0)
-		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d} "level"=0 "msg"="msg"`, filepath.Base(file), line-1)
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect := fmt.Sprintf(`"caller"={"file":%q,"line":%d} "level"=0 "msg"="msg"`, filepath.Base(file), line-1)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 		sink.Error(fmt.Errorf("error"), "msg")
 		_, file, line, _ = runtime.Caller(0)
-		expect = fmt.Sprintf(` "caller"={"file":%q,"line":%d} "msg"="msg" "error"="error"`, filepath.Base(file), line-1)
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect = fmt.Sprintf(`"caller"={"file":%q,"line":%d} "msg"="msg" "error"="error"`, filepath.Base(file), line-1)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 	})
-	t.Run("LogCaller=All, LogCallerFunc=true", func(t *testing.T) {
-		thisFunc := "github.com/go-logr/logr/funcr.TestInfoWithCaller.func2"
-		cap := &capture{}
-		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: All, LogCallerFunc: true}))
+	t.Run("JSON: LogCaller=All", func(t *testing.T) {
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatterJSON(Options{LogCaller: All}))
 		sink.Info(0, "msg")
 		_, file, line, _ := runtime.Caller(0)
-		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d,"function":%q} "level"=0 "msg"="msg"`, filepath.Base(file), line-1, thisFunc)
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect := fmt.Sprintf(`{"logger":"","caller":{"file":%q,"line":%d},"level":0,"msg":"msg"}`, filepath.Base(file), line-1)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 		sink.Error(fmt.Errorf("error"), "msg")
 		_, file, line, _ = runtime.Caller(0)
-		expect = fmt.Sprintf(` "caller"={"file":%q,"line":%d,"function":%q} "msg"="msg" "error"="error"`, filepath.Base(file), line-1, thisFunc)
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect = fmt.Sprintf(`{"logger":"","caller":{"file":%q,"line":%d},"msg":"msg","error":"error"}`, filepath.Base(file), line-1)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
+		}
+	})
+	t.Run("KV: LogCaller=All, LogCallerFunc=true", func(t *testing.T) {
+		thisFunc := "github.com/go-logr/logr/funcr.TestInfoWithCaller.func3"
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: All, LogCallerFunc: true}))
+		sink.Info(0, "msg")
+		_, file, line, _ := runtime.Caller(0)
+		expect := fmt.Sprintf(`"caller"={"file":%q,"line":%d,"function":%q} "level"=0 "msg"="msg"`, filepath.Base(file), line-1, thisFunc)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
+		}
+		sink.Error(fmt.Errorf("error"), "msg")
+		_, file, line, _ = runtime.Caller(0)
+		expect = fmt.Sprintf(`"caller"={"file":%q,"line":%d,"function":%q} "msg"="msg" "error"="error"`, filepath.Base(file), line-1, thisFunc)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
+		}
+	})
+	t.Run("JSON: LogCaller=All, LogCallerFunc=true", func(t *testing.T) {
+		thisFunc := "github.com/go-logr/logr/funcr.TestInfoWithCaller.func4"
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatterJSON(Options{LogCaller: All, LogCallerFunc: true}))
+		sink.Info(0, "msg")
+		_, file, line, _ := runtime.Caller(0)
+		expect := fmt.Sprintf(`{"logger":"","caller":{"file":%q,"line":%d,"function":%q},"level":0,"msg":"msg"}`, filepath.Base(file), line-1, thisFunc)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
+		}
+		sink.Error(fmt.Errorf("error"), "msg")
+		_, file, line, _ = runtime.Caller(0)
+		expect = fmt.Sprintf(`{"logger":"","caller":{"file":%q,"line":%d,"function":%q},"msg":"msg","error":"error"}`, filepath.Base(file), line-1, thisFunc)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 	})
 	t.Run("LogCaller=Info", func(t *testing.T) {
-		cap := &capture{}
-		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: Info}))
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: Info}))
 		sink.Info(0, "msg")
 		_, file, line, _ := runtime.Caller(0)
-		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d} "level"=0 "msg"="msg"`, filepath.Base(file), line-1)
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect := fmt.Sprintf(`"caller"={"file":%q,"line":%d} "level"=0 "msg"="msg"`, filepath.Base(file), line-1)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 		sink.Error(fmt.Errorf("error"), "msg")
-		expect = ` "msg"="msg" "error"="error"`
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect = `"msg"="msg" "error"="error"`
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 	})
 	t.Run("LogCaller=Error", func(t *testing.T) {
-		cap := &capture{}
-		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: Error}))
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: Error}))
 		sink.Info(0, "msg")
-		expect := ` "level"=0 "msg"="msg"`
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect := `"level"=0 "msg"="msg"`
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 		sink.Error(fmt.Errorf("error"), "msg")
 		_, file, line, _ := runtime.Caller(0)
-		expect = fmt.Sprintf(` "caller"={"file":%q,"line":%d} "msg"="msg" "error"="error"`, filepath.Base(file), line-1)
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect = fmt.Sprintf(`"caller"={"file":%q,"line":%d} "msg"="msg" "error"="error"`, filepath.Base(file), line-1)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 	})
 	t.Run("LogCaller=None", func(t *testing.T) {
-		cap := &capture{}
-		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: None}))
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: None}))
 		sink.Info(0, "msg")
-		expect := ` "level"=0 "msg"="msg"`
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect := `"level"=0 "msg"="msg"`
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 		sink.Error(fmt.Errorf("error"), "msg")
-		expect = ` "msg"="msg" "error"="error"`
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect = `"msg"="msg" "error"="error"`
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 	})
 }
 
 func TestError(t *testing.T) {
 	testCases := []struct {
-		name   string
-		args   []interface{}
-		expect string
+		name       string
+		args       []interface{}
+		expectKV   string
+		expectJSON string
 	}{{
-		name:   "just msg",
-		args:   makeKV(),
-		expect: ` "msg"="msg" "error"="err"`,
+		name:       "just msg",
+		args:       makeKV(),
+		expectKV:   `"msg"="msg" "error"="err"`,
+		expectJSON: `{"logger":"","msg":"msg","error":"err"}`,
 	}, {
-		name:   "primitives",
-		args:   makeKV("int", 1, "str", "ABC", "bool", true),
-		expect: ` "msg"="msg" "error"="err" "int"=1 "str"="ABC" "bool"=true`,
+		name:       "primitives",
+		args:       makeKV("int", 1, "str", "ABC", "bool", true),
+		expectKV:   `"msg"="msg" "error"="err" "int"=1 "str"="ABC" "bool"=true`,
+		expectJSON: `{"logger":"","msg":"msg","error":"err","int":1,"str":"ABC","bool":true}`,
 	}}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cap := &capture{}
-			sink := newSink(cap.Func, NewFormatter(Options{}))
+		t.Run("KV: "+tc.name, func(t *testing.T) {
+			capt := &capture{}
+			sink := newSink(capt.Func, NewFormatter(Options{}))
 			sink.Error(fmt.Errorf("err"), "msg", tc.args...)
-			if cap.log != tc.expect {
-				t.Errorf("\nexpected %q\n     got %q", tc.expect, cap.log)
+			if capt.log != tc.expectKV {
+				t.Errorf("\nexpected %q\n     got %q", tc.expectKV, capt.log)
+			}
+		})
+		t.Run("JSON: "+tc.name, func(t *testing.T) {
+			capt := &capture{}
+			sink := newSink(capt.Func, NewFormatterJSON(Options{}))
+			sink.Error(fmt.Errorf("err"), "msg", tc.args...)
+			if capt.log != tc.expectJSON {
+				t.Errorf("\nexpected %q\n     got %q", tc.expectJSON, capt.log)
 			}
 		})
 	}
 }
 
 func TestErrorWithCaller(t *testing.T) {
-	t.Run("LogCaller=All", func(t *testing.T) {
-		cap := &capture{}
-		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: All}))
+	t.Run("KV: LogCaller=All", func(t *testing.T) {
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: All}))
 		sink.Error(fmt.Errorf("err"), "msg")
 		_, file, line, _ := runtime.Caller(0)
-		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d} "msg"="msg" "error"="err"`, filepath.Base(file), line-1)
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect := fmt.Sprintf(`"caller"={"file":%q,"line":%d} "msg"="msg" "error"="err"`, filepath.Base(file), line-1)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
+		}
+	})
+	t.Run("JSON: LogCaller=All", func(t *testing.T) {
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatterJSON(Options{LogCaller: All}))
+		sink.Error(fmt.Errorf("err"), "msg")
+		_, file, line, _ := runtime.Caller(0)
+		expect := fmt.Sprintf(`{"logger":"","caller":{"file":%q,"line":%d},"msg":"msg","error":"err"}`, filepath.Base(file), line-1)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 	})
 	t.Run("LogCaller=Error", func(t *testing.T) {
-		cap := &capture{}
-		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: Error}))
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: Error}))
 		sink.Error(fmt.Errorf("err"), "msg")
 		_, file, line, _ := runtime.Caller(0)
-		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d} "msg"="msg" "error"="err"`, filepath.Base(file), line-1)
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect := fmt.Sprintf(`"caller"={"file":%q,"line":%d} "msg"="msg" "error"="err"`, filepath.Base(file), line-1)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 	})
 	t.Run("LogCaller=Info", func(t *testing.T) {
-		cap := &capture{}
-		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: Info}))
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: Info}))
 		sink.Error(fmt.Errorf("err"), "msg")
-		expect := ` "msg"="msg" "error"="err"`
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect := `"msg"="msg" "error"="err"`
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 	})
 	t.Run("LogCaller=None", func(t *testing.T) {
-		cap := &capture{}
-		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: None}))
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: None}))
 		sink.Error(fmt.Errorf("err"), "msg")
-		expect := ` "msg"="msg" "error"="err"`
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect := `"msg"="msg" "error"="err"`
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 	})
 }
 
 func TestInfoWithName(t *testing.T) {
 	testCases := []struct {
-		name   string
-		names  []string
-		args   []interface{}
-		expect string
+		name       string
+		names      []string
+		args       []interface{}
+		expectKV   string
+		expectJSON string
 	}{{
-		name:   "one",
-		names:  []string{"pfx1"},
-		args:   makeKV("k", "v"),
-		expect: `pfx1 "level"=0 "msg"="msg" "k"="v"`,
+		name:       "one",
+		names:      []string{"pfx1"},
+		args:       makeKV("k", "v"),
+		expectKV:   `pfx1 "level"=0 "msg"="msg" "k"="v"`,
+		expectJSON: `{"logger":"pfx1","level":0,"msg":"msg","k":"v"}`,
 	}, {
-		name:   "two",
-		names:  []string{"pfx1", "pfx2"},
-		args:   makeKV("k", "v"),
-		expect: `pfx1/pfx2 "level"=0 "msg"="msg" "k"="v"`,
+		name:       "two",
+		names:      []string{"pfx1", "pfx2"},
+		args:       makeKV("k", "v"),
+		expectKV:   `pfx1/pfx2 "level"=0 "msg"="msg" "k"="v"`,
+		expectJSON: `{"logger":"pfx1/pfx2","level":0,"msg":"msg","k":"v"}`,
 	}}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cap := &capture{}
-			sink := newSink(cap.Func, NewFormatter(Options{}))
+		t.Run("KV: "+tc.name, func(t *testing.T) {
+			capt := &capture{}
+			sink := newSink(capt.Func, NewFormatter(Options{}))
 			for _, n := range tc.names {
 				sink = sink.WithName(n)
 			}
 			sink.Info(0, "msg", tc.args...)
-			if cap.log != tc.expect {
-				t.Errorf("\nexpected %q\n     got %q", tc.expect, cap.log)
+			if capt.log != tc.expectKV {
+				t.Errorf("\nexpected %q\n     got %q", tc.expectKV, capt.log)
+			}
+		})
+		t.Run("JSON: "+tc.name, func(t *testing.T) {
+			capt := &capture{}
+			sink := newSink(capt.Func, NewFormatterJSON(Options{}))
+			for _, n := range tc.names {
+				sink = sink.WithName(n)
+			}
+			sink.Info(0, "msg", tc.args...)
+			if capt.log != tc.expectJSON {
+				t.Errorf("\nexpected %q\n     got %q", tc.expectJSON, capt.log)
 			}
 		})
 	}
@@ -1080,32 +1163,46 @@ func TestInfoWithName(t *testing.T) {
 
 func TestErrorWithName(t *testing.T) {
 	testCases := []struct {
-		name   string
-		names  []string
-		args   []interface{}
-		expect string
+		name       string
+		names      []string
+		args       []interface{}
+		expectKV   string
+		expectJSON string
 	}{{
-		name:   "one",
-		names:  []string{"pfx1"},
-		args:   makeKV("k", "v"),
-		expect: `pfx1 "msg"="msg" "error"="err" "k"="v"`,
+		name:       "one",
+		names:      []string{"pfx1"},
+		args:       makeKV("k", "v"),
+		expectKV:   `pfx1 "msg"="msg" "error"="err" "k"="v"`,
+		expectJSON: `{"logger":"pfx1","msg":"msg","error":"err","k":"v"}`,
 	}, {
-		name:   "two",
-		names:  []string{"pfx1", "pfx2"},
-		args:   makeKV("k", "v"),
-		expect: `pfx1/pfx2 "msg"="msg" "error"="err" "k"="v"`,
+		name:       "two",
+		names:      []string{"pfx1", "pfx2"},
+		args:       makeKV("k", "v"),
+		expectKV:   `pfx1/pfx2 "msg"="msg" "error"="err" "k"="v"`,
+		expectJSON: `{"logger":"pfx1/pfx2","msg":"msg","error":"err","k":"v"}`,
 	}}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cap := &capture{}
-			sink := newSink(cap.Func, NewFormatter(Options{}))
+		t.Run("KV: "+tc.name, func(t *testing.T) {
+			capt := &capture{}
+			sink := newSink(capt.Func, NewFormatter(Options{}))
 			for _, n := range tc.names {
 				sink = sink.WithName(n)
 			}
 			sink.Error(fmt.Errorf("err"), "msg", tc.args...)
-			if cap.log != tc.expect {
-				t.Errorf("\nexpected %q\n     got %q", tc.expect, cap.log)
+			if capt.log != tc.expectKV {
+				t.Errorf("\nexpected %q\n     got %q", tc.expectKV, capt.log)
+			}
+		})
+		t.Run("JSON: "+tc.name, func(t *testing.T) {
+			capt := &capture{}
+			sink := newSink(capt.Func, NewFormatterJSON(Options{}))
+			for _, n := range tc.names {
+				sink = sink.WithName(n)
+			}
+			sink.Error(fmt.Errorf("err"), "msg", tc.args...)
+			if capt.log != tc.expectJSON {
+				t.Errorf("\nexpected %q\n     got %q", tc.expectJSON, capt.log)
 			}
 		})
 	}
@@ -1113,40 +1210,54 @@ func TestErrorWithName(t *testing.T) {
 
 func TestInfoWithValues(t *testing.T) {
 	testCases := []struct {
-		name   string
-		values []interface{}
-		args   []interface{}
-		expect string
+		name       string
+		values     []interface{}
+		args       []interface{}
+		expectKV   string
+		expectJSON string
 	}{{
-		name:   "zero",
-		values: makeKV(),
-		args:   makeKV("k", "v"),
-		expect: ` "level"=0 "msg"="msg" "k"="v"`,
+		name:       "zero",
+		values:     makeKV(),
+		args:       makeKV("k", "v"),
+		expectKV:   `"level"=0 "msg"="msg" "k"="v"`,
+		expectJSON: `{"logger":"","level":0,"msg":"msg","k":"v"}`,
 	}, {
-		name:   "one",
-		values: makeKV("one", 1),
-		args:   makeKV("k", "v"),
-		expect: ` "level"=0 "msg"="msg" "one"=1 "k"="v"`,
+		name:       "one",
+		values:     makeKV("one", 1),
+		args:       makeKV("k", "v"),
+		expectKV:   `"level"=0 "msg"="msg" "one"=1 "k"="v"`,
+		expectJSON: `{"logger":"","level":0,"msg":"msg","one":1,"k":"v"}`,
 	}, {
-		name:   "two",
-		values: makeKV("one", 1, "two", 2),
-		args:   makeKV("k", "v"),
-		expect: ` "level"=0 "msg"="msg" "one"=1 "two"=2 "k"="v"`,
+		name:       "two",
+		values:     makeKV("one", 1, "two", 2),
+		args:       makeKV("k", "v"),
+		expectKV:   `"level"=0 "msg"="msg" "one"=1 "two"=2 "k"="v"`,
+		expectJSON: `{"logger":"","level":0,"msg":"msg","one":1,"two":2,"k":"v"}`,
 	}, {
-		name:   "dangling",
-		values: makeKV("dangling"),
-		args:   makeKV("k", "v"),
-		expect: ` "level"=0 "msg"="msg" "dangling"="<no-value>" "k"="v"`,
+		name:       "dangling",
+		values:     makeKV("dangling"),
+		args:       makeKV("k", "v"),
+		expectKV:   `"level"=0 "msg"="msg" "dangling"="<no-value>" "k"="v"`,
+		expectJSON: `{"logger":"","level":0,"msg":"msg","dangling":"<no-value>","k":"v"}`,
 	}}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cap := &capture{}
-			sink := newSink(cap.Func, NewFormatter(Options{}))
+		t.Run("KV: "+tc.name, func(t *testing.T) {
+			capt := &capture{}
+			sink := newSink(capt.Func, NewFormatter(Options{}))
 			sink = sink.WithValues(tc.values...)
 			sink.Info(0, "msg", tc.args...)
-			if cap.log != tc.expect {
-				t.Errorf("\nexpected %q\n     got %q", tc.expect, cap.log)
+			if capt.log != tc.expectKV {
+				t.Errorf("\nexpected %q\n     got %q", tc.expectKV, capt.log)
+			}
+		})
+		t.Run("JSON: "+tc.name, func(t *testing.T) {
+			capt := &capture{}
+			sink := newSink(capt.Func, NewFormatterJSON(Options{}))
+			sink = sink.WithValues(tc.values...)
+			sink.Info(0, "msg", tc.args...)
+			if capt.log != tc.expectJSON {
+				t.Errorf("\nexpected %q\n     got %q", tc.expectJSON, capt.log)
 			}
 		})
 	}
@@ -1154,40 +1265,54 @@ func TestInfoWithValues(t *testing.T) {
 
 func TestErrorWithValues(t *testing.T) {
 	testCases := []struct {
-		name   string
-		values []interface{}
-		args   []interface{}
-		expect string
+		name       string
+		values     []interface{}
+		args       []interface{}
+		expectKV   string
+		expectJSON string
 	}{{
-		name:   "zero",
-		values: makeKV(),
-		args:   makeKV("k", "v"),
-		expect: ` "msg"="msg" "error"="err" "k"="v"`,
+		name:       "zero",
+		values:     makeKV(),
+		args:       makeKV("k", "v"),
+		expectKV:   `"msg"="msg" "error"="err" "k"="v"`,
+		expectJSON: `{"logger":"","msg":"msg","error":"err","k":"v"}`,
 	}, {
-		name:   "one",
-		values: makeKV("one", 1),
-		args:   makeKV("k", "v"),
-		expect: ` "msg"="msg" "error"="err" "one"=1 "k"="v"`,
+		name:       "one",
+		values:     makeKV("one", 1),
+		args:       makeKV("k", "v"),
+		expectKV:   `"msg"="msg" "error"="err" "one"=1 "k"="v"`,
+		expectJSON: `{"logger":"","msg":"msg","error":"err","one":1,"k":"v"}`,
 	}, {
-		name:   "two",
-		values: makeKV("one", 1, "two", 2),
-		args:   makeKV("k", "v"),
-		expect: ` "msg"="msg" "error"="err" "one"=1 "two"=2 "k"="v"`,
+		name:       "two",
+		values:     makeKV("one", 1, "two", 2),
+		args:       makeKV("k", "v"),
+		expectKV:   `"msg"="msg" "error"="err" "one"=1 "two"=2 "k"="v"`,
+		expectJSON: `{"logger":"","msg":"msg","error":"err","one":1,"two":2,"k":"v"}`,
 	}, {
-		name:   "dangling",
-		values: makeKV("dangling"),
-		args:   makeKV("k", "v"),
-		expect: ` "msg"="msg" "error"="err" "dangling"="<no-value>" "k"="v"`,
+		name:       "dangling",
+		values:     makeKV("dangling"),
+		args:       makeKV("k", "v"),
+		expectKV:   `"msg"="msg" "error"="err" "dangling"="<no-value>" "k"="v"`,
+		expectJSON: `{"logger":"","msg":"msg","error":"err","dangling":"<no-value>","k":"v"}`,
 	}}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cap := &capture{}
-			sink := newSink(cap.Func, NewFormatter(Options{}))
+		t.Run("KV: "+tc.name, func(t *testing.T) {
+			capt := &capture{}
+			sink := newSink(capt.Func, NewFormatter(Options{}))
 			sink = sink.WithValues(tc.values...)
 			sink.Error(fmt.Errorf("err"), "msg", tc.args...)
-			if cap.log != tc.expect {
-				t.Errorf("\nexpected %q\n     got %q", tc.expect, cap.log)
+			if capt.log != tc.expectKV {
+				t.Errorf("\nexpected %q\n     got %q", tc.expectKV, capt.log)
+			}
+		})
+		t.Run("JSON: "+tc.name, func(t *testing.T) {
+			capt := &capture{}
+			sink := newSink(capt.Func, NewFormatterJSON(Options{}))
+			sink = sink.WithValues(tc.values...)
+			sink.Error(fmt.Errorf("err"), "msg", tc.args...)
+			if capt.log != tc.expectJSON {
+				t.Errorf("\nexpected %q\n     got %q", tc.expectJSON, capt.log)
 			}
 		})
 	}
@@ -1195,44 +1320,44 @@ func TestErrorWithValues(t *testing.T) {
 
 func TestInfoWithCallDepth(t *testing.T) {
 	t.Run("one", func(t *testing.T) {
-		cap := &capture{}
-		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: All}))
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: All}))
 		dSink, _ := sink.(logr.CallDepthLogSink)
 		sink = dSink.WithCallDepth(1)
 		sink.Info(0, "msg")
 		_, file, line, _ := runtime.Caller(1)
-		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d} "level"=0 "msg"="msg"`, filepath.Base(file), line)
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect := fmt.Sprintf(`"caller"={"file":%q,"line":%d} "level"=0 "msg"="msg"`, filepath.Base(file), line)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 	})
 }
 
 func TestErrorWithCallDepth(t *testing.T) {
 	t.Run("one", func(t *testing.T) {
-		cap := &capture{}
-		sink := newSink(cap.Func, NewFormatter(Options{LogCaller: All}))
+		capt := &capture{}
+		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: All}))
 		dSink, _ := sink.(logr.CallDepthLogSink)
 		sink = dSink.WithCallDepth(1)
 		sink.Error(fmt.Errorf("err"), "msg")
 		_, file, line, _ := runtime.Caller(1)
-		expect := fmt.Sprintf(` "caller"={"file":%q,"line":%d} "msg"="msg" "error"="err"`, filepath.Base(file), line)
-		if cap.log != expect {
-			t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+		expect := fmt.Sprintf(`"caller"={"file":%q,"line":%d} "msg"="msg" "error"="err"`, filepath.Base(file), line)
+		if capt.log != expect {
+			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 	})
 }
 
 func TestOptionsTimestampFormat(t *testing.T) {
-	cap := &capture{}
+	capt := &capture{}
 	//  This timestamp format contains none of the characters that are
 	//  considered placeholders, so will produce a constant result.
-	sink := newSink(cap.Func, NewFormatter(Options{LogTimestamp: true, TimestampFormat: "TIMESTAMP"}))
+	sink := newSink(capt.Func, NewFormatter(Options{LogTimestamp: true, TimestampFormat: "TIMESTAMP"}))
 	dSink, _ := sink.(logr.CallDepthLogSink)
 	sink = dSink.WithCallDepth(1)
 	sink.Info(0, "msg")
-	expect := ` "ts"="TIMESTAMP" "level"=0 "msg"="msg"`
-	if cap.log != expect {
-		t.Errorf("\nexpected %q\n     got %q", expect, cap.log)
+	expect := `"ts"="TIMESTAMP" "level"=0 "msg"="msg"`
+	if capt.log != expect {
+		t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 	}
 }
