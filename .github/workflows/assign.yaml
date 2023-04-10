@@ -6,6 +6,9 @@ on:
   pull_request_target:
     types: [opened, reopened]
 
+permissions:
+  contents: read
+
 jobs:
   assign:
     runs-on: ubuntu-latest
