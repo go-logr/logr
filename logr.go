@@ -127,9 +127,9 @@ limitations under the License.
 // such a value can call its methods without having to check whether the
 // instance is ready for use.
 //
-// Calling methods with the null logger (Logger{}) as instance will crash
-// because it has no LogSink. Therefore this null logger should never be passed
-// around. For cases where passing a logger is optional, a pointer to Logger
+// The zero logger (= Logger{}) is identical to Discard() and discards all log
+// entries. Code that receives a Logger by value can simply call it, the methods
+// will never crash. For cases where passing a logger is optional, a pointer to Logger
 // should be used.
 //
 // # Key Naming Conventions
