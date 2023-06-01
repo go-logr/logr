@@ -548,3 +548,5 @@ type Marshaler interface {
 	// It may return any value of any type.
 	MarshalLog() interface{}
 }
+
+var unused = 1
