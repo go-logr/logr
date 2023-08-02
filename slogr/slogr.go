@@ -17,8 +17,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package slogr implements the github.com/go-logr/logr API in terms of Go's
-// slog API.
+// Package slogr provides bridges between github.com/go-logr/logr and Go's
+// slog package.
 package slogr
 
 import (
@@ -30,7 +30,7 @@ import (
 	"github.com/go-logr/logr"
 )
 
-// New returns a logr.Logger which is implemented by an arbitrary slog Handler.
+// New returns a logr.Logger which logs through an arbitrary slog.Handler.
 func New(handler slog.Handler) logr.Logger {
 	return logr.New(newSink(handler))
 }
