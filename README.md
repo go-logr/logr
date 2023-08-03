@@ -74,6 +74,28 @@ received:
 If the Go standard library had defined an interface for logging, this project
 probably would not be needed.  Alas, here we are.
 
+When the Go developers started developing such an interface with
+[slog](https://github.com/golang/go/issues/56345), they adopted some of the
+logr design but also left out some parts and changed others:
+
+| Feature | logr | slog |
+|---------|------|------|
+| High-level API | `Logger` (passed by value) | `Logger` (passed by [pointer](https://github.com/golang/go/issues/59126)) |
+| Low-level API | `LogSink` | `Handler` |
+| Stack unwinding | done by `LogSink` | done by `Logger` |
+| Skipping helper functions | `WithCallDepth`, `WithCallStackHelper` | [not supported by Logger](https://github.com/golang/go/issues/59145) |
+| Generating a value for logging on demand | `Marshaler` | `LogValuer` |
+| Log levels | >= 0, higher meaning "less important" | positive and negative, with 0 for "info" and higher meaning "more important" |
+| Error log entries | always logged, don't have a verbosity level | normal log entries with level >= `LevelError` |
+| Passing logger via context | `NewContext`, `FromContext` | no API |
+| Adding a name to a logger | `WithName` | no API |
+| Grouping of key/value pairs | not supported | `WithGroup`, `GroupValue` |
+
+The high-level slog API is explicitly meant to be one of many different APIs
+that can be layered on top of a shared `slog.Handler`. logr is one such
+alternative API, with interoperability as [described
+below](#slog-interoperability).
+
 ### Inspiration
 
 Before you consider this package, please read [this blog post by the
@@ -118,6 +140,63 @@ There are implementations for the following logging libraries:
 - **github.com/rs/zerolog**: [zerologr](https://github.com/go-logr/zerologr)
 - **github.com/go-kit/log**: [gokitlogr](https://github.com/tonglil/gokitlogr) (also compatible with github.com/go-kit/kit/log since v0.12.0)
 - **bytes.Buffer** (writing to a buffer): [bufrlogr](https://github.com/tonglil/buflogr) (useful for ensuring values were logged, like during testing)
+
+## slog interoperability
+
+Interoperability goes both ways, using the `logr.Logger` API with a `slog.Handler`
+and using the `slog.Logger` API with a `logr.LogSink`. logr provides `ToSlog` and
+`FromSlog` API calls to convert between a `logr.Logger` and a `slog.Logger`. Because
+the `slog.Logger` API is optional, there are also variants of these calls which
+work directly with a `slog.Handler`.
+
+Ideally, the backend should support both logr and slog. In that case, log calls
+can go from the high-level API to the backend with no intermediate glue
+code. Because of a conflict in the parameters of the common Enabled method, it
+is [not possible to implement both interfaces in the same
+type](https://github.com/golang/go/issues/59110). A second type and methods for
+converting from one type to the other are needed. Here is an example:
+
+```
+// logSink implements logr.LogSink and logr.SlogImplementor.
+type logSink struct { ... }
+
+func (l *logSink) Enabled(lvl int) bool { ... }
+...
+
+// logHandler implements slog.Handler.
+type logHandler logSink
+
+func (l *logHandler) Enabled(ctx context.Context, slog.Level) bool { ... }
+...
+
+// Explicit support for converting between the two types is needed by logr
+// because it cannot do type assertions.
+
+func (l *logSink) GetSlogHandler() slog.Handler { return (*logHandler)(l) }
+func (l *logHandler) GetLogrLogSink() logr.LogSink { return (*logSink)(l) }
+```
+
+Such a backend also should support values that implement specific interfaces
+from both packages for logging (`logr.Marshaler`, `slog.LogValuer`). logr does not
+convert between those.
+
+If a backend only supports `logr.LogSink`, then `ToSlog` uses
+[`slogHandler`](sloghandler.go) to implement the `logr.Handler` on top of that
+`logr.LogSink`. This solution is problematic because there is no way to log the
+correct call site. All log entries with `slog.Level` >= `slog.LevelInfo` (= 0)
+and < `slog.LevelError` get logged as info message with logr level 0, >=
+`slog.LevelError` as error message and negative levels as debug messages with
+negated level (i.e. `slog.LevelDebug` = -4 becomes
+`V(4).Info`). `slog.LogValuer` will not get used. Applications which care about
+these aspects should switch to a logr implementation which supports slog.
+
+If a backend only supports slog.Handler, then `FromSlog` uses
+[`slogSink`](slogsink.go). This solution is more viable because call sites can
+be logged correctly. However, `logr.Marshaler` will not get used. Types that
+support `logr.Marshaler` should also support
+`slog.LogValuer`. `logr.Logger.Error` logs with `slog.ErrorLevel`,
+`logr.Logger.Info` with the negated level (i.e. `V(0).Info` uses `slog.Level` 0
+= `slog.InfoLevel`, `V(4).Info` uses `slog.Level` -4 = `slog.DebugLevel`).
 
 ## FAQ
 
@@ -242,7 +321,9 @@ Otherwise, you can start out with `0` as "you always want to see this",
 
 Then gradually choose levels in between as you need them, working your way
 down from 10 (for debug and trace style logs) and up from 1 (for chattier
-info-type logs.)
+info-type logs). For reference, slog pre-defines -4 for debug logs
+(corresponds to 4 in logr), which matches what is
+[recommended for Kubernetes](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md#what-method-to-use).
 
 #### How do I choose my keys?
 
