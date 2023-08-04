@@ -28,7 +28,7 @@ import (
 // It's terribly inefficient, and is only a basic example.
 type tabLogSink struct {
 	name      string
-	keyValues map[string]interface{}
+	keyValues map[string]any
 	writer    *tabwriter.Writer
 }
 
@@ -43,7 +43,7 @@ func (_ tabLogSink) Enabled(level int) bool {
 	return true
 }
 
-func (l tabLogSink) Info(level int, msg string, kvs ...interface{}) {
+func (l tabLogSink) Info(level int, msg string, kvs ...any) {
 	fmt.Fprintf(l.writer, "%s\t%s\t", l.name, msg)
 	for k, v := range l.keyValues {
 		fmt.Fprintf(l.writer, "%s: %+v  ", k, v)
@@ -55,7 +55,7 @@ func (l tabLogSink) Info(level int, msg string, kvs ...interface{}) {
 	l.writer.Flush()
 }
 
-func (l tabLogSink) Error(err error, msg string, kvs ...interface{}) {
+func (l tabLogSink) Error(err error, msg string, kvs ...any) {
 	kvs = append(kvs, "error", err)
 	l.Info(0, msg, kvs...)
 }
@@ -68,8 +68,8 @@ func (l tabLogSink) WithName(name string) logr.LogSink {
 	}
 }
 
-func (l tabLogSink) WithValues(kvs ...interface{}) logr.LogSink {
-	newMap := make(map[string]interface{}, len(l.keyValues)+len(kvs)/2)
+func (l tabLogSink) WithValues(kvs ...any) logr.LogSink {
+	newMap := make(map[string]any, len(l.keyValues)+len(kvs)/2)
 	for k, v := range l.keyValues {
 		newMap[k] = v
 	}

@@ -34,17 +34,17 @@ import (
 // (but a bit trickier) to use file-level "base" loggers.
 
 var objectMap = map[string]Object{
-	"obj1": Object{
+	"obj1": {
 		Name:    "obj1",
 		Kind:    "one",
 		Details: 33,
 	},
-	"obj2": Object{
+	"obj2": {
 		Name:    "obj2",
 		Kind:    "two",
 		Details: "hi",
 	},
-	"obj3": Object{
+	"obj3": {
 		Name:    "obj3",
 		Kind:    "one",
 		Details: 1,
@@ -54,7 +54,7 @@ var objectMap = map[string]Object{
 type Object struct {
 	Name    string
 	Kind    string
-	Details interface{}
+	Details any
 }
 
 type Client struct {

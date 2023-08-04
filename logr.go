@@ -267,7 +267,7 @@ func (l Logger) Enabled() bool {
 // line.  The key/value pairs can then be used to add additional variable
 // information.  The key/value pairs must alternate string keys and arbitrary
 // values.
-func (l Logger) Info(msg string, keysAndValues ...interface{}) {
+func (l Logger) Info(msg string, keysAndValues ...any) {
 	if l.sink == nil {
 		return
 	}
@@ -289,7 +289,7 @@ func (l Logger) Info(msg string, keysAndValues ...interface{}) {
 // while the err argument should be used to attach the actual error that
 // triggered this log line, if present. The err parameter is optional
 // and nil may be passed instead of an error instance.
-func (l Logger) Error(err error, msg string, keysAndValues ...interface{}) {
+func (l Logger) Error(err error, msg string, keysAndValues ...any) {
 	if l.sink == nil {
 		return
 	}
@@ -316,7 +316,7 @@ func (l Logger) V(level int) Logger {
 
 // WithValues returns a new Logger instance with additional key/value pairs.
 // See Info for documentation on how key/value pairs work.
-func (l Logger) WithValues(keysAndValues ...interface{}) Logger {
+func (l Logger) WithValues(keysAndValues ...any) Logger {
 	if l.sink == nil {
 		return l
 	}
@@ -467,15 +467,15 @@ type LogSink interface {
 	// The level argument is provided for optional logging.  This method will
 	// only be called when Enabled(level) is true. See Logger.Info for more
 	// details.
-	Info(level int, msg string, keysAndValues ...interface{})
+	Info(level int, msg string, keysAndValues ...any)
 
 	// Error logs an error, with the given message and key/value pairs as
 	// context.  See Logger.Error for more details.
-	Error(err error, msg string, keysAndValues ...interface{})
+	Error(err error, msg string, keysAndValues ...any)
 
 	// WithValues returns a new LogSink with additional key/value pairs.  See
 	// Logger.WithValues for more details.
-	WithValues(keysAndValues ...interface{}) LogSink
+	WithValues(keysAndValues ...any) LogSink
 
 	// WithName returns a new LogSink with the specified name appended.  See
 	// Logger.WithName for more details.
@@ -546,5 +546,5 @@ type Marshaler interface {
 	//     with exported fields
 	//
 	// It may return any value of any type.
-	MarshalLog() interface{}
+	MarshalLog() any
 }

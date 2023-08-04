@@ -130,7 +130,7 @@ func doErrorValue(b *testing.B, log logr.Logger) {
 
 type Tmarshaler struct{ s string }
 
-func (t Tmarshaler) MarshalLog() interface{} {
+func (t Tmarshaler) MarshalLog() any {
 	return t.s
 }
 

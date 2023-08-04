@@ -45,7 +45,7 @@ func (l stdoutlogger) WithName(name string) logr.LogSink {
 	return &l
 }
 
-func (l stdoutlogger) WithValues(kvList ...interface{}) logr.LogSink {
+func (l stdoutlogger) WithValues(kvList ...any) logr.LogSink {
 	l.Formatter.AddValues(kvList)
 	return &l
 }
@@ -55,12 +55,12 @@ func (l stdoutlogger) WithCallDepth(depth int) logr.LogSink {
 	return &l
 }
 
-func (l stdoutlogger) Info(level int, msg string, kvList ...interface{}) {
+func (l stdoutlogger) Info(level int, msg string, kvList ...any) {
 	prefix, args := l.FormatInfo(level, msg, kvList)
 	l.write("INFO", prefix, args)
 }
 
-func (l stdoutlogger) Error(err error, msg string, kvList ...interface{}) {
+func (l stdoutlogger) Error(err error, msg string, kvList ...any) {
 	prefix, args := l.FormatError(err, msg, kvList)
 	l.write("ERROR", prefix, args)
 }
