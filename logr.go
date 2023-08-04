@@ -209,6 +209,8 @@ package logr
 
 import (
 	"context"
+	"runtime"
+	"time"
 )
 
 // New returns a new Logger instance.  This is primarily used by libraries
@@ -261,6 +263,13 @@ func (l Logger) Enabled() bool {
 	return l.sink != nil && l.sink.Enabled(l.level)
 }
 
+func getCaller() uintptr {
+	var pcs [1]uintptr
+	runtime.Callers(3, pcs[:]) // Skip our own frames
+	return pcs[0]
+
+}
+
 // Info logs a non-error message with the given key/value pairs as context.
 //
 // The msg argument should be used to add some constant description to the log
@@ -275,7 +284,15 @@ func (l Logger) Info(msg string, keysAndValues ...interface{}) {
 		if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
 			withHelper.GetCallStackHelper()()
 		}
-		l.sink.Info(l.level, msg, keysAndValues...)
+		if recordSink, ok := l.sink.(SlogFriendlyLogSink); ok {
+			rec := SinkRecord{
+				Time: time.Now(),
+				PC:   getCaller(), // TODO: make this optional?
+			}
+			recordSink.InfoRecord(rec, l.level, msg, keysAndValues...)
+		} else {
+			l.sink.Info(l.level, msg, keysAndValues...)
+		}
 	}
 }
 
@@ -296,7 +313,15 @@ func (l Logger) Error(err error, msg string, keysAndValues ...interface{}) {
 	if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
 		withHelper.GetCallStackHelper()()
 	}
-	l.sink.Error(err, msg, keysAndValues...)
+	if recordSink, ok := l.sink.(SlogFriendlyLogSink); ok {
+		rec := SinkRecord{
+			Time: time.Now(),
+			PC:   getCaller(), // TODO: make this optional?
+		}
+		recordSink.ErrorRecord(rec, err, msg, keysAndValues...)
+	} else {
+		l.sink.Error(err, msg, keysAndValues...)
+	}
 }
 
 // V returns a new Logger instance for a specific verbosity level, relative to
@@ -480,6 +505,37 @@ type LogSink interface {
 	// WithName returns a new LogSink with the specified name appended.  See
 	// Logger.WithName for more details.
 	WithName(name string) LogSink
+}
+
+// SlogFriendlyLogSink represents a LogSink which supports extended
+// functionality to match Go's slog package.
+//
+// This is an optional interface and implementations are not required to
+// support it.
+type SlogFriendlyLogSink interface {
+	// Info logs a non-error message with the given key/value pairs as context.
+	// The level argument is provided for optional logging.  This method will
+	// only be called when Enabled(level) is true. See Logger.Info for more
+	// details.
+	InfoRecord(record SinkRecord, level int, msg string, keysAndValues ...interface{})
+
+	// Error logs an error, with the given message and key/value pairs as
+	// context.  See Logger.Error for more details.
+	ErrorRecord(record SinkRecord, err error, msg string, keysAndValues ...interface{})
+}
+
+// SinkRecord carries additional data for each call to Info or Error.
+type SinkRecord struct {
+	// The time at which this log record was created.
+	Time time.Time
+
+	// The program counter from which this log record originates, as determined
+	// by runtime.Callers. If zero, no program counter is available.
+	//
+	// The only valid use for this value is as an argument to
+	// [runtime.CallersFrames]. In particular, it must not be passed to
+	// [runtime.FuncForPC].
+	PC uintptr
 }
 
 // CallDepthLogSink represents a LogSink that knows how to climb the call stack

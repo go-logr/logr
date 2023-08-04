@@ -178,8 +178,18 @@ func (l fnlogger) Info(level int, msg string, kvList ...interface{}) {
 	l.write(prefix, args)
 }
 
+func (l fnlogger) InfoRecord(record logr.SinkRecord, level int, msg string, kvList ...interface{}) {
+	prefix, args := l.FormatInfoRecord(record, level, msg, kvList)
+	l.write(prefix, args)
+}
+
 func (l fnlogger) Error(err error, msg string, kvList ...interface{}) {
 	prefix, args := l.FormatError(err, msg, kvList)
+	l.write(prefix, args)
+}
+
+func (l fnlogger) ErrorRecord(record logr.SinkRecord, err error, msg string, kvList ...interface{}) {
+	prefix, args := l.FormatErrorRecord(record, err, msg, kvList)
 	l.write(prefix, args)
 }
 
@@ -189,6 +199,7 @@ func (l fnlogger) GetUnderlying() func(prefix, args string) {
 
 // Assert conformance to the interfaces.
 var _ logr.LogSink = &fnlogger{}
+var _ logr.SlogFriendlyLogSink = &fnlogger{}
 var _ logr.CallDepthLogSink = &fnlogger{}
 var _ Underlier = &fnlogger{}
 
@@ -657,20 +668,22 @@ type Caller struct {
 	Func string `json:"function,omitempty"`
 }
 
-func (f Formatter) caller() Caller {
-	// +1 for this frame, +1 for Info/Error.
-	pc, file, line, ok := runtime.Caller(f.depth + 2)
-	if !ok {
-		return Caller{"<unknown>", 0, ""}
-	}
+func (f Formatter) callerPC() uintptr {
+	// +1 for this frame, +1 for Formatter.FormatInfo/Error, +1 for Info/Error.
+	var pcs [1]uintptr
+	runtime.Callers(f.depth+3, pcs[:])
+	return pcs[0]
+}
+
+func (f Formatter) caller(pc uintptr) Caller {
+	frame, _ := runtime.CallersFrames([]uintptr{pc}).Next()
+
 	fn := ""
 	if f.opts.LogCallerFunc {
-		if fp := runtime.FuncForPC(pc); fp != nil {
-			fn = fp.Name()
-		}
+		fn = frame.Function
 	}
 
-	return Caller{filepath.Base(file), line, fn}
+	return Caller{filepath.Base(frame.File), frame.Line, fn}
 }
 
 const noValue = "<no-value>"
@@ -728,6 +741,20 @@ func (f Formatter) GetDepth() int {
 // empty when no names were set (via AddNames), or when the output is
 // configured for JSON.
 func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (prefix, argsStr string) {
+	rec := logr.SinkRecord{}
+	if f.opts.LogTimestamp {
+		rec.Time = time.Now()
+	}
+	if policy := f.opts.LogCaller; policy == All || policy == Info {
+		rec.PC = f.callerPC()
+	}
+	return f.FormatInfoRecord(rec, level, msg, kvList)
+}
+
+// FormatInfoRecord renders an Info log message into strings.  The prefix will
+// be empty when no names were set (via AddNames), or when the output is
+// configured for JSON.
+func (f Formatter) FormatInfoRecord(record logr.SinkRecord, level int, msg string, kvList []interface{}) (prefix, argsStr string) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
 	prefix = f.prefix
 	if f.outputFormat == outputJSON {
@@ -735,10 +762,10 @@ func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (pref
 		prefix = ""
 	}
 	if f.opts.LogTimestamp {
-		args = append(args, "ts", time.Now().Format(f.opts.TimestampFormat))
+		args = append(args, "ts", record.Time.Format(f.opts.TimestampFormat))
 	}
 	if policy := f.opts.LogCaller; policy == All || policy == Info {
-		args = append(args, "caller", f.caller())
+		args = append(args, "caller", f.caller(record.PC))
 	}
 	args = append(args, "level", level, "msg", msg)
 	return prefix, f.render(args, kvList)
@@ -748,6 +775,20 @@ func (f Formatter) FormatInfo(level int, msg string, kvList []interface{}) (pref
 // empty when no names were set (via AddNames), or when the output is
 // configured for JSON.
 func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (prefix, argsStr string) {
+	rec := logr.SinkRecord{}
+	if f.opts.LogTimestamp {
+		rec.Time = time.Now()
+	}
+	if policy := f.opts.LogCaller; policy == All || policy == Error {
+		rec.PC = f.callerPC()
+	}
+	return f.FormatErrorRecord(rec, err, msg, kvList)
+}
+
+// FormatErrorRecord renders an Error log message into strings.  The prefix
+// will be empty when no names were set (via AddNames), or when the output is
+// configured for JSON.
+func (f Formatter) FormatErrorRecord(record logr.SinkRecord, err error, msg string, kvList []interface{}) (prefix, argsStr string) {
 	args := make([]interface{}, 0, 64) // using a constant here impacts perf
 	prefix = f.prefix
 	if f.outputFormat == outputJSON {
@@ -755,10 +796,10 @@ func (f Formatter) FormatError(err error, msg string, kvList []interface{}) (pre
 		prefix = ""
 	}
 	if f.opts.LogTimestamp {
-		args = append(args, "ts", time.Now().Format(f.opts.TimestampFormat))
+		args = append(args, "ts", record.Time.Format(f.opts.TimestampFormat))
 	}
 	if policy := f.opts.LogCaller; policy == All || policy == Error {
-		args = append(args, "caller", f.caller())
+		args = append(args, "caller", f.caller(record.PC))
 	}
 	args = append(args, "msg", msg)
 	var loggableErr interface{}
