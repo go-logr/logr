@@ -54,7 +54,7 @@ func (p pointErr) MarshalText() ([]byte, error) {
 // Logging this should result in the MarshalLog() value.
 type Tmarshaler struct{ val string }
 
-func (t Tmarshaler) MarshalLog() interface{} {
+func (t Tmarshaler) MarshalLog() any {
 	return struct{ Inner string }{"I am a logr.Marshaler"}
 }
 
@@ -69,7 +69,7 @@ func (t Tmarshaler) Error() string {
 // Logging this should result in a panic.
 type Tmarshalerpanic struct{ val string }
 
-func (t Tmarshalerpanic) MarshalLog() interface{} {
+func (t Tmarshalerpanic) MarshalLog() any {
 	panic("Tmarshalerpanic")
 }
 
@@ -251,7 +251,7 @@ func TestPretty(t *testing.T) {
 	}
 
 	cases := []struct {
-		val interface{}
+		val any
 		exp string // used in cases where JSON can't handle it
 	}{{
 		val: "strval",
@@ -402,11 +402,11 @@ func TestPretty(t *testing.T) {
 		val: struct {
 			A *int
 			B *int
-			C interface{}
-			D interface{}
+			C any
+			D any
 		}{
 			B: ptrint(1),
-			D: interface{}(2),
+			D: any(2),
 		},
 	}, {
 		val: Tmarshaler{"foobar"},
@@ -678,7 +678,7 @@ func TestPretty(t *testing.T) {
 	}
 }
 
-func makeKV(args ...interface{}) []interface{} {
+func makeKV(args ...any) []any {
 	return args
 }
 
@@ -694,9 +694,9 @@ func TestRender(t *testing.T) {
 
 	testCases := []struct {
 		name       string
-		builtins   []interface{}
-		values     []interface{}
-		args       []interface{}
+		builtins   []any
+		values     []any
+		args       []any
 		expectKV   string
 		expectJSON string
 	}{{
@@ -705,9 +705,9 @@ func TestRender(t *testing.T) {
 		expectJSON: "{}",
 	}, {
 		name:       "empty",
-		builtins:   []interface{}{},
-		values:     []interface{}{},
-		args:       []interface{}{},
+		builtins:   []any{},
+		values:     []any{},
+		args:       []any{},
 		expectKV:   "",
 		expectJSON: "{}",
 	}, {
@@ -800,12 +800,12 @@ func TestRender(t *testing.T) {
 func TestSanitize(t *testing.T) {
 	testCases := []struct {
 		name   string
-		kv     []interface{}
-		expect []interface{}
+		kv     []any
+		expect []any
 	}{{
 		name:   "empty",
-		kv:     []interface{}{},
-		expect: []interface{}{},
+		kv:     []any{},
+		expect: []any{},
 	}, {
 		name:   "already sane",
 		kv:     makeKV("int", 1, "str", "ABC", "bool", true),
@@ -877,7 +877,7 @@ func (c *capture) Func(prefix, args string) {
 func TestInfo(t *testing.T) {
 	testCases := []struct {
 		name       string
-		args       []interface{}
+		args       []any
 		expectKV   string
 		expectJSON string
 	}{{
@@ -1028,7 +1028,7 @@ func TestInfoWithCaller(t *testing.T) {
 func TestError(t *testing.T) {
 	testCases := []struct {
 		name       string
-		args       []interface{}
+		args       []any
 		expectKV   string
 		expectJSON string
 	}{{
@@ -1118,7 +1118,7 @@ func TestInfoWithName(t *testing.T) {
 	testCases := []struct {
 		name       string
 		names      []string
-		args       []interface{}
+		args       []any
 		expectKV   string
 		expectJSON string
 	}{{
@@ -1165,7 +1165,7 @@ func TestErrorWithName(t *testing.T) {
 	testCases := []struct {
 		name       string
 		names      []string
-		args       []interface{}
+		args       []any
 		expectKV   string
 		expectJSON string
 	}{{
@@ -1211,8 +1211,8 @@ func TestErrorWithName(t *testing.T) {
 func TestInfoWithValues(t *testing.T) {
 	testCases := []struct {
 		name       string
-		values     []interface{}
-		args       []interface{}
+		values     []any
+		args       []any
 		expectKV   string
 		expectJSON string
 	}{{
@@ -1266,8 +1266,8 @@ func TestInfoWithValues(t *testing.T) {
 func TestErrorWithValues(t *testing.T) {
 	testCases := []struct {
 		name       string
-		values     []interface{}
-		args       []interface{}
+		values     []any
+		args       []any
 		expectKV   string
 		expectJSON string
 	}{{

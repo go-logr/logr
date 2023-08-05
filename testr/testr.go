@@ -54,7 +54,7 @@ func NewWithOptions(t *testing.T, opts Options) logr.Logger {
 // TestingT is an interface wrapper around testing.T, testing.B and testing.F.
 type TestingT interface {
 	Helper()
-	Log(args ...interface{})
+	Log(args ...any)
 }
 
 // NewWithInterface returns a logr.Logger that prints through a
@@ -92,7 +92,7 @@ type UnderlierInterface interface {
 }
 
 // Info logging implementation shared between testLogger and testLoggerInterface.
-func logInfo(t TestingT, formatInfo func(int, string, []interface{}) (string, string), level int, msg string, kvList ...interface{}) {
+func logInfo(t TestingT, formatInfo func(int, string, []any) (string, string), level int, msg string, kvList ...any) {
 	prefix, args := formatInfo(level, msg, kvList)
 	t.Helper()
 	if prefix != "" {
@@ -102,7 +102,7 @@ func logInfo(t TestingT, formatInfo func(int, string, []interface{}) (string, st
 }
 
 // Error logging implementation shared between testLogger and testLoggerInterface.
-func logError(t TestingT, formatError func(error, string, []interface{}) (string, string), err error, msg string, kvList ...interface{}) {
+func logError(t TestingT, formatError func(error, string, []any) (string, string), err error, msg string, kvList ...any) {
 	prefix, args := formatError(err, msg, kvList)
 	t.Helper()
 	if prefix != "" {
@@ -134,7 +134,7 @@ func (l testloggerInterface) WithName(name string) logr.LogSink {
 	return &l
 }
 
-func (l testloggerInterface) WithValues(kvList ...interface{}) logr.LogSink {
+func (l testloggerInterface) WithValues(kvList ...any) logr.LogSink {
 	l.Formatter.AddValues(kvList)
 	return &l
 }
@@ -143,12 +143,12 @@ func (l testloggerInterface) GetCallStackHelper() func() {
 	return l.t.Helper
 }
 
-func (l testloggerInterface) Info(level int, msg string, kvList ...interface{}) {
+func (l testloggerInterface) Info(level int, msg string, kvList ...any) {
 	l.t.Helper()
 	logInfo(l.t, l.FormatInfo, level, msg, kvList...)
 }
 
-func (l testloggerInterface) Error(err error, msg string, kvList ...interface{}) {
+func (l testloggerInterface) Error(err error, msg string, kvList ...any) {
 	l.t.Helper()
 	logError(l.t, l.FormatError, err, msg, kvList...)
 }

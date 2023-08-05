@@ -74,7 +74,7 @@ func ExampleOptions() {
 
 func ExampleOptions_renderHooks() {
 	// prefix all builtin keys with "log:"
-	prefixSpecialKeys := func(kvList []interface{}) []interface{} {
+	prefixSpecialKeys := func(kvList []any) []any {
 		for i := 0; i < len(kvList); i += 2 {
 			k, _ := kvList[i].(string)
 			kvList[i] = "log:" + k
@@ -83,8 +83,8 @@ func ExampleOptions_renderHooks() {
 	}
 
 	// present saved values as a single JSON object
-	valuesAsObject := func(kvList []interface{}) []interface{} {
-		return []interface{}{"labels", funcr.PseudoStruct(kvList)}
+	valuesAsObject := func(kvList []any) []any {
+		return []any{"labels", funcr.PseudoStruct(kvList)}
 	}
 
 	var log logr.Logger = funcr.NewJSON(
@@ -104,7 +104,7 @@ func ExamplePseudoStruct() {
 	var log logr.Logger = funcr.NewJSON(
 		func(obj string) { fmt.Println(obj) },
 		funcr.Options{})
-	kv := []interface{}{
+	kv := []any{
 		"field1", 12345,
 		"field2", true,
 	}

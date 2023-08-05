@@ -28,9 +28,9 @@ import (
 type testLogSink struct {
 	fnInit       func(ri RuntimeInfo)
 	fnEnabled    func(lvl int) bool
-	fnInfo       func(lvl int, msg string, kv ...interface{})
-	fnError      func(err error, msg string, kv ...interface{})
-	fnWithValues func(kv ...interface{})
+	fnInfo       func(lvl int, msg string, kv ...any)
+	fnError      func(err error, msg string, kv ...any)
+	fnWithValues func(kv ...any)
 	fnWithName   func(name string)
 }
 
@@ -49,19 +49,19 @@ func (l *testLogSink) Enabled(lvl int) bool {
 	return false
 }
 
-func (l *testLogSink) Info(lvl int, msg string, kv ...interface{}) {
+func (l *testLogSink) Info(lvl int, msg string, kv ...any) {
 	if l.fnInfo != nil {
 		l.fnInfo(lvl, msg, kv...)
 	}
 }
 
-func (l *testLogSink) Error(err error, msg string, kv ...interface{}) {
+func (l *testLogSink) Error(err error, msg string, kv ...any) {
 	if l.fnError != nil {
 		l.fnError(err, msg, kv...)
 	}
 }
 
-func (l *testLogSink) WithValues(kv ...interface{}) LogSink {
+func (l *testLogSink) WithValues(kv ...any) LogSink {
 	if l.fnWithValues != nil {
 		l.fnWithValues(kv...)
 	}
@@ -148,10 +148,10 @@ func TestError(t *testing.T) {
 	calledError := 0
 	errInput := fmt.Errorf("error")
 	msgInput := "msg"
-	kvInput := []interface{}{0, 1, 2}
+	kvInput := []any{0, 1, 2}
 
 	sink := &testLogSink{}
-	sink.fnError = func(err error, msg string, kv ...interface{}) {
+	sink.fnError = func(err error, msg string, kv ...any) {
 		calledError++
 		if err != errInput {
 			t.Errorf("unexpected err input, got %v", err)
@@ -197,14 +197,14 @@ func TestInfo(t *testing.T) {
 	calledInfo := 0
 	lvlInput := 0
 	msgInput := "msg"
-	kvInput := []interface{}{0, 1, 2}
+	kvInput := []any{0, 1, 2}
 
 	sink := &testLogSink{}
 	sink.fnEnabled = func(lvl int) bool {
 		calledEnabled++
 		return lvl < 100
 	}
-	sink.fnInfo = func(lvl int, msg string, kv ...interface{}) {
+	sink.fnInfo = func(lvl int, msg string, kv ...any) {
 		calledInfo++
 		if lvl != lvlInput {
 			t.Errorf("unexpected lvl input, got %v", lvl)
@@ -265,10 +265,10 @@ func TestInfo(t *testing.T) {
 
 func TestWithValues(t *testing.T) {
 	calledWithValues := 0
-	kvInput := []interface{}{"zero", 0, "one", 1, "two", 2}
+	kvInput := []any{"zero", 0, "one", 1, "two", 2}
 
 	sink := &testLogSink{}
-	sink.fnWithValues = func(kv ...interface{}) {
+	sink.fnWithValues = func(kv ...any) {
 		calledWithValues++
 		if !reflect.DeepEqual(kv, kvInput) {
 			t.Errorf("unexpected kv input, got %v", kv)

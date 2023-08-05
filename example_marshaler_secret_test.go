@@ -27,7 +27,7 @@ type ComplexObjectRef struct {
 	Secret    string
 }
 
-func (ref ComplexObjectRef) MarshalLog() interface{} {
+func (ref ComplexObjectRef) MarshalLog() any {
 	return struct {
 		Name, Namespace string
 	}{

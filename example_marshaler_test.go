@@ -33,7 +33,7 @@ func (ref ObjectRef) String() string {
 	return ref.Name
 }
 
-func (ref ObjectRef) MarshalLog() interface{} {
+func (ref ObjectRef) MarshalLog() any {
 	// We implement fmt.Stringer for non-structured logging, but we want the
 	// raw struct when using structured logs.  Some logr implementations call
 	// String if it is present, so we want to convert this struct to something
