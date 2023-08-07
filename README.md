@@ -74,6 +74,29 @@ received:
 If the Go standard library had defined an interface for logging, this project
 probably would not be needed.  Alas, here we are.
 
+When the Go developers started developing such an interface with
+[slog](https://github.com/golang/go/issues/56345), they adopted some of the
+logr design but also left out some parts and changed others:
+
+| Feature | logr | slog |
+|---------|------|------|
+| High-level API | `Logger` (passed by value) | `Logger` (passed by [pointer](https://github.com/golang/go/issues/59126)) |
+| Low-level API | `LogSink` | `Handler` |
+| Stack unwinding | done by `LogSink` | done by `Logger` |
+| Skipping helper functions | `WithCallDepth`, `WithCallStackHelper` | [not supported by Logger](https://github.com/golang/go/issues/59145) |
+| Generating a value for logging on demand | `Marshaler` | `LogValuer` |
+| Log levels | >= 0, higher meaning "less important" | positive and negative, with 0 for "info" and higher meaning "more important" |
+| Error log entries | always logged, don't have a verbosity level | normal log entries with level >= `LevelError` |
+| Passing logger via context | `NewContext`, `FromContext` | no API |
+| Adding a name to a logger | `WithName` | no API |
+| Modify verbosity of log entries in a call chain | `V` | no API |
+| Grouping of key/value pairs | not supported | `WithGroup`, `GroupValue` |
+
+The high-level slog API is explicitly meant to be one of many different APIs
+that can be layered on top of a shared `slog.Handler`. logr is one such
+alternative API, with interoperability provided by the [`slogr`](slogr)
+package.
+
 ### Inspiration
 
 Before you consider this package, please read [this blog post by the
@@ -242,7 +265,9 @@ Otherwise, you can start out with `0` as "you always want to see this",
 
 Then gradually choose levels in between as you need them, working your way
 down from 10 (for debug and trace style logs) and up from 1 (for chattier
-info-type logs.)
+info-type logs). For reference, slog pre-defines -4 for debug logs
+(corresponds to 4 in logr), which matches what is
+[recommended for Kubernetes](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md#what-method-to-use).
 
 #### How do I choose my keys?
 
