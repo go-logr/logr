@@ -27,7 +27,10 @@ import (
 )
 
 type slogHandler struct {
+	// May be nil, in which case all logs get discarded.
 	sink logr.LogSink
+	// Non-nil if sink is non-nil and implements SlogSink.
+	slogSink SlogSink
 
 	// groupPrefix collects values from WithGroup calls. It gets added as
 	// prefix to value keys when handling a log record.
@@ -56,6 +59,14 @@ func (l *slogHandler) Enabled(ctx context.Context, level slog.Level) bool {
 }
 
 func (l *slogHandler) Handle(ctx context.Context, record slog.Record) error {
+	if l.slogSink != nil {
+		// Only adjust verbosity level of log entries < slog.LevelError.
+		if record.Level < slog.LevelError {
+			record.Level -= l.levelBias
+		}
+		return l.slogSink.Handle(ctx, record)
+	}
+
 	// No need to check for nil sink here because Handle will only be called
 	// when Enabled returned true.
 
@@ -97,14 +108,20 @@ func (l *slogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	if l.sink == nil || len(attrs) == 0 {
 		return l
 	}
-	kvList := make([]any, 0, 2*len(attrs))
-	for _, attr := range attrs {
-		if attr.Key != "" {
-			kvList = append(kvList, l.addGroupPrefix(attr.Key), attr.Value.Resolve().Any())
-		}
-	}
+
 	copy := *l
-	copy.sink = l.sink.WithValues(kvList...)
+	if l.slogSink != nil {
+		copy.slogSink = l.slogSink.WithAttrs(attrs)
+		copy.sink = copy.slogSink
+	} else {
+		kvList := make([]any, 0, 2*len(attrs))
+		for _, attr := range attrs {
+			if attr.Key != "" {
+				kvList = append(kvList, l.addGroupPrefix(attr.Key), attr.Value.Resolve().Any())
+			}
+		}
+		copy.sink = l.sink.WithValues(kvList...)
+	}
 	return &copy
 }
 
@@ -113,7 +130,12 @@ func (l *slogHandler) WithGroup(name string) slog.Handler {
 		return l
 	}
 	copy := *l
-	copy.groupPrefix = copy.addGroupPrefix(name)
+	if l.slogSink != nil {
+		copy.slogSink = l.slogSink.WithGroup(name)
+		copy.sink = l.slogSink
+	} else {
+		copy.groupPrefix = copy.addGroupPrefix(name)
+	}
 	return &copy
 }
 

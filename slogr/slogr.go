@@ -25,6 +25,7 @@ limitations under the License.
 package slogr
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/go-logr/logr"
@@ -67,5 +68,40 @@ func NewSlogHandler(logger logr.Logger) slog.Handler {
 		return sink.handler
 	}
 
-	return &slogHandler{sink: logger.GetSink(), levelBias: slog.Level(logger.GetV())}
+	handler := &slogHandler{sink: logger.GetSink(), levelBias: slog.Level(logger.GetV())}
+	if slogSink, ok := handler.sink.(SlogSink); ok {
+		handler.slogSink = slogSink
+	}
+	return handler
+}
+
+// SlogSink is an optional interface that a LogSink can implement to support
+// logging through the slog.Logger or slog.Handler APIs better. It then should
+// also support special slog values like slog.Group. When used as a
+// slog.Handler, the advantages are:
+//
+//   - stack unwinding gets avoided in favor of logging the pre-recorded PC,
+//     as intended by slog
+//   - proper grouping of key/value pairs via WithGroup
+//   - verbosity levels > slog.LevelInfo can be recorded
+//   - less overhead
+//
+// Both APIs (logr.Logger and slog.Logger/Handler) then are supported equally
+// well. Developers can pick whatever API suits them better and/or mix
+// packages which use either API in the same binary with a common logging
+// implementation.
+//
+// This interface is necessary because the type implementing the LogSink
+// interface cannot also implement the slog.Handler interface due to the
+// different prototype of the common Enabled method.
+//
+// An implementation could support both interfaces in two different types, but then
+// additional interfaces would be needed to convert between those types in NewLogr
+// and NewSlogHandler.
+type SlogSink interface {
+	logr.LogSink
+
+	Handle(ctx context.Context, record slog.Record) error
+	WithAttrs(attrs []slog.Attr) SlogSink
+	WithGroup(name string) SlogSink
 }
