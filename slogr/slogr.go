@@ -35,6 +35,12 @@ import (
 // The logr verbosity level is mapped to slog levels such that V(0) becomes
 // slog.LevelInfo and V(4) becomes slog.LevelDebug.
 func NewLogr(handler slog.Handler) logr.Logger {
+	if handler, ok := handler.(*slogHandler); ok {
+		if handler.sink == nil {
+			return logr.Discard()
+		}
+		return logr.New(handler.sink).V(int(handler.levelBias))
+	}
 	return logr.New(&slogSink{handler: handler})
 }
 
@@ -57,10 +63,9 @@ func NewLogr(handler slog.Handler) logr.Logger {
 //	slog.New(NewSlogHandler(logger)).Info(...) -> logger.GetSink().Info(level=0, ...)
 //	slog.New(NewSlogHandler(logger.V(4))).Info(...) -> logger.GetSink().Info(level=4, ...)
 func NewSlogHandler(logger logr.Logger) slog.Handler {
-	// This offset currently (Go 1.21.0) works for slog.New(NewSlogHandler(...)).Info.
-	// There's no guarantee that the call chain won't change and wrapping
-	// the handler will also break unwinding, but it's still better than not
-	// adjusting at all.
-	logger = logger.WithCallDepth(2)
+	if sink, ok := logger.GetSink().(*slogSink); ok && logger.GetV() == 0 {
+		return sink.handler
+	}
+
 	return &slogHandler{sink: logger.GetSink(), levelBias: slog.Level(logger.GetV())}
 }
