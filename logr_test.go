@@ -172,23 +172,26 @@ func TestError(t *testing.T) {
 }
 
 func TestV(t *testing.T) {
-	sink := &testLogSink{}
-	logger := New(sink)
-
-	if l := logger.V(0); l.level != 0 {
-		t.Errorf("expected level 0, got %d", l.level)
-	}
-	if l := logger.V(93); l.level != 93 {
-		t.Errorf("expected level 93, got %d", l.level)
-	}
-	if l := logger.V(70).V(6); l.level != 76 {
-		t.Errorf("expected level 76, got %d", l.level)
-	}
-	if l := logger.V(-1); l.level != 0 {
-		t.Errorf("expected level 0, got %d", l.level)
-	}
-	if l := logger.V(1).V(-1); l.level != 1 {
-		t.Errorf("expected level 1, got %d", l.level)
+	for name, logger := range map[string]Logger{
+		"testLogSink": New(&testLogSink{}),
+		"Discard":     Discard(),
+		"Zero":        {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			adjust := func(level int) int {
+				if logger.GetSink() == nil {
+					// The Discard and the zero Logger short-cut the V call and don't
+					// change the verbosity level.
+					return 0
+				}
+				return level
+			}
+			expectEqual(t, "V(0)", 0, logger.V(0).GetV())
+			expectEqual(t, "V(93)", adjust(93), logger.V(93).GetV())
+			expectEqual(t, "V(70).V(6)", adjust(76), logger.V(70).V(6).GetV())
+			expectEqual(t, "V(-1)", 0, logger.V(-1).GetV())
+			expectEqual(t, "V(1).V(-1)", adjust(1), logger.V(1).V(-1).GetV())
+		})
 	}
 }
 
@@ -438,4 +441,13 @@ func TestZeroValue(t *testing.T) {
 	l2.Info("foo")
 	l2.Error(errors.New("bar"), "some error")
 	_, _ = l.WithCallStackHelper()
+}
+
+func expectEqual[T comparable](tb testing.TB, msg string, expected, actual T) bool {
+	if expected == actual {
+		return true
+	}
+	tb.Helper()
+	tb.Errorf("Failure: %s: expected to get %v, got %v instead", msg, expected, actual)
+	return false
 }

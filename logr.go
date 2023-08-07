@@ -314,6 +314,13 @@ func (l Logger) V(level int) Logger {
 	return l
 }
 
+// GetV returns the verbosity level of the logger. If the logger's LogSink is
+// nil as in the Discard logger, this will always return 0.
+func (l Logger) GetV() int {
+	// 0 if l.sink nil because of the if check in V above.
+	return l.level
+}
+
 // WithValues returns a new Logger instance with additional key/value pairs.
 // See Info for documentation on how key/value pairs work.
 func (l Logger) WithValues(keysAndValues ...any) Logger {
