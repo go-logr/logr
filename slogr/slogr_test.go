@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path"
@@ -183,4 +184,38 @@ func containsOne(hay string, needles ...string) bool {
 func TestDiscard(t *testing.T) {
 	logger := slog.New(slogr.NewSlogHandler(logr.Discard()))
 	logger.WithGroup("foo").With("x", 1).Info("hello")
+}
+
+func TestConversion(t *testing.T) {
+	d := logr.Discard()
+	d2 := slogr.NewLogr(slogr.NewSlogHandler(d))
+	expectEqual(t, d, d2)
+
+	e := logr.Logger{}
+	e2 := slogr.NewLogr(slogr.NewSlogHandler(e))
+	expectEqual(t, e, e2)
+
+	f := funcr.New(func(prefix, args string) {}, funcr.Options{})
+	f2 := slogr.NewLogr(slogr.NewSlogHandler(f))
+	expectEqual(t, f, f2)
+
+	text := slog.NewTextHandler(io.Discard, nil)
+	text2 := slogr.NewSlogHandler(slogr.NewLogr(text))
+	expectEqual(t, text, text2)
+
+	text3 := slogr.NewSlogHandler(slogr.NewLogr(text).V(1))
+	if handler, ok := text3.(interface {
+		GetLevel() slog.Level
+	}); ok {
+		expectEqual(t, handler.GetLevel(), slog.Level(1))
+	} else {
+		t.Errorf("Expected a slogHandler which implements V(1), got instead: %T %+v", text3, text3)
+	}
+}
+
+func expectEqual(t *testing.T, expected, actual any) {
+	if expected != actual {
+		t.Helper()
+		t.Errorf("Expected %T %+v, got instead: %T %+v", expected, expected, actual, actual)
+	}
 }

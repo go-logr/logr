@@ -46,6 +46,11 @@ var _ slog.Handler = &slogHandler{}
 // groupSeparator is used to concatenate WithGroup names and attribute keys.
 const groupSeparator = "."
 
+// GetLevel is used for black box unit testing.
+func (l *slogHandler) GetLevel() slog.Level {
+	return l.levelBias
+}
+
 func (l *slogHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return l.sink != nil && (level >= slog.LevelError || l.sink.Enabled(l.levelFromSlog(level)))
 }
@@ -62,12 +67,30 @@ func (l *slogHandler) Handle(ctx context.Context, record slog.Record) error {
 		return true
 	})
 	if record.Level >= slog.LevelError {
-		l.sink.Error(nil, record.Message, kvList...)
+		l.sinkWithCallDepth().Error(nil, record.Message, kvList...)
 	} else {
 		level := l.levelFromSlog(record.Level)
-		l.sink.Info(level, record.Message, kvList...)
+		l.sinkWithCallDepth().Info(level, record.Message, kvList...)
 	}
 	return nil
+}
+
+// sinkWithCallDepth adjusts the stack unwinding so that when Error or Info
+// are called by Handle, code in slog gets skipped.
+//
+// This offset currently (Go 1.21.0) works for calls through
+// slog.New(NewSlogHandler(...)).  There's no guarantee that the call
+// chain won't change. Wrapping the handler will also break unwinding. It's
+// still better than not adjusting at all....
+//
+// This cannot be done when constructing the handler because NewLogr needs
+// access to the original sink without this adjustment. A second copy would
+// work, but then WithAttrs would have to be called for both of them.
+func (l *slogHandler) sinkWithCallDepth() logr.LogSink {
+	if sink, ok := l.sink.(logr.CallDepthLogSink); ok {
+		return sink.WithCallDepth(2)
+	}
+	return l.sink
 }
 
 func (l *slogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
