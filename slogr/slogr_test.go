@@ -254,6 +254,31 @@ func TestConversion(t *testing.T) {
 	}
 }
 
+func TestContext(t *testing.T) {
+	defaultLogger := slog.Default()
+	defer slog.SetDefault(defaultLogger)
+
+	// Retrieve default.
+	expectEqual(t, defaultLogger.Handler(), slogr.HandlerFromContext(context.Background()))
+	discard := slogr.NewSlogHandler(logr.Discard())
+
+	// Retrieve modified default.
+	slog.SetDefault(slog.New(discard))
+	expectEqual(t, discard, slogr.HandlerFromContext(context.Background()))
+
+	// Store and retrieve funcr.
+	funcrLogger := funcr.New(func(_, _ string) {}, funcr.Options{})
+	ctx := logr.NewContext(context.Background(), funcrLogger)
+	funcrHandler := slogr.HandlerFromContext(ctx)
+	expectEqual(t, funcrLogger, slogr.NewLogr(funcrHandler))
+
+	// Store and retrieve slog.JSONHandler.
+	jsonHandler := slog.NewJSONHandler(io.Discard, nil)
+	ctx = slogr.ContextWithHandler(context.Background(), jsonHandler)
+	jsonLogger := logr.FromContextOrDiscard(ctx)
+	expectEqual(t, jsonHandler, slogr.NewSlogHandler(jsonLogger))
+}
+
 func expectEqual(t *testing.T, expected, actual any) {
 	if expected != actual {
 		t.Helper()

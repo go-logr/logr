@@ -105,3 +105,24 @@ type SlogSink interface {
 	WithAttrs(attrs []slog.Attr) SlogSink
 	WithGroup(name string) SlogSink
 }
+
+// HandlerFromContext retrieves a slog.Handler from the context or, if no
+// logger is stored there, returns the slog default handler.
+//
+// It uses logr.FromContext and thus is interoperable with code that only knows
+// about the logr API.
+func HandlerFromContext(ctx context.Context) slog.Handler {
+	logger, err := logr.FromContext(ctx)
+	if err == nil {
+		return NewSlogHandler(logger)
+	}
+	return slog.Default().Handler()
+}
+
+// ContextWithHandler creates a new context which contains the given handler.
+//
+// It stores the handler after conversion to a logr.Logger with logr.NewContext
+// and thus is interoperable with code that only knows about the logr API.
+func ContextWithHandler(ctx context.Context, handler slog.Handler) context.Context {
+	return logr.NewContext(ctx, NewLogr(handler))
+}
