@@ -258,7 +258,15 @@ type Logger struct {
 // Enabled tests whether this Logger is enabled.  For example, commandline
 // flags might be used to set the logging verbosity and disable some info logs.
 func (l Logger) Enabled() bool {
-	return l.sink != nil && l.sink.Enabled(l.level)
+	return l.sink != nil && l.enabled()
+}
+
+// enabled ensures that Enabled and Info both call LogSink.Enabled with one
+// intermediate stack frame. This wouldn't be necessary if Info had called
+// LogSink.Enabled directly in logr v1.0.0, but it didn't and now that cannot
+// be changed anymore because implementations depend on this behavior.
+func (l Logger) enabled() bool {
+	return l.sink.Enabled(l.level)
 }
 
 // Info logs a non-error message with the given key/value pairs as context.
@@ -271,7 +279,7 @@ func (l Logger) Info(msg string, keysAndValues ...any) {
 	if l.sink == nil {
 		return
 	}
-	if l.Enabled() {
+	if l.enabled() {
 		if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
 			withHelper.GetCallStackHelper()()
 		}
@@ -447,9 +455,13 @@ func NewContext(ctx context.Context, logger Logger) context.Context {
 // LogSinks might want to know.
 type RuntimeInfo struct {
 	// CallDepth is the number of call frames the logr library adds between the
-	// end-user and the LogSink.  LogSink implementations which choose to print
+	// end-user and the LogSink. LogSink implementations which choose to print
 	// the original logging site (e.g. file & line) should climb this many
 	// additional frames to find it.
+	//
+	// The CallDepth is given for LogSink.Info and LogSink.Error such that 1 means
+	// "skip one intermediate level". For historic reasons, LogSink.Enabled must
+	// skip one additional level compared to those two calls.
 	CallDepth int
 }
 
