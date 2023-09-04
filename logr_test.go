@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
@@ -441,6 +442,49 @@ func TestZeroValue(t *testing.T) {
 	l2.Info("foo")
 	l2.Error(errors.New("bar"), "some error")
 	_, _ = l.WithCallStackHelper()
+}
+
+func TestCallDepthConsistent(t *testing.T) {
+	sink := &testLogSink{}
+
+	depth := 0
+	expect := "github.com/go-logr/logr.TestCallDepthConsistent"
+	sink.fnInit = func(ri RuntimeInfo) {
+		depth = ri.CallDepth + 1 // 1 for these function pointers
+		if caller := getCaller(depth); caller != expect {
+			t.Errorf("identified wrong caller %q", caller)
+		}
+
+	}
+	sink.fnEnabled = func(_ int) bool {
+		if caller := getCaller(depth); caller != expect {
+			t.Errorf("identified wrong caller %q", caller)
+		}
+		return true
+	}
+	sink.fnError = func(_ error, _ string, _ ...any) {
+		if caller := getCaller(depth); caller != expect {
+			t.Errorf("identified wrong caller %q", caller)
+		}
+	}
+	l := New(sink)
+
+	l.Enabled()
+	l.Info("msg")
+	l.Error(nil, "msg")
+}
+
+func getCaller(depth int) string {
+	// +1 for this frame, +1 for Info/Error/Enabled.
+	pc, _, _, ok := runtime.Caller(depth + 2)
+	if !ok {
+		return "<runtime.Caller failed>"
+	}
+	fp := runtime.FuncForPC(pc)
+	if fp == nil {
+		return "<runtime.FuncForPC failed>"
+	}
+	return fp.Name()
 }
 
 func expectEqual[T comparable](tb testing.TB, msg string, expected, actual T) bool {
