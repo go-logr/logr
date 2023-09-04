@@ -187,11 +187,38 @@ func TestV(t *testing.T) {
 				}
 				return level
 			}
-			expectEqual(t, "V(0)", 0, logger.V(0).GetV())
-			expectEqual(t, "V(93)", adjust(93), logger.V(93).GetV())
-			expectEqual(t, "V(70).V(6)", adjust(76), logger.V(70).V(6).GetV())
-			expectEqual(t, "V(-1)", 0, logger.V(-1).GetV())
-			expectEqual(t, "V(1).V(-1)", adjust(1), logger.V(1).V(-1).GetV())
+			inputs := []struct {
+				name string
+				fn   func() Logger
+				exp  int
+			}{{
+				name: "V(0)",
+				fn:   func() Logger { return logger.V(0) },
+				exp:  0,
+			}, {
+				name: "V(93)",
+				fn:   func() Logger { return logger.V(93) },
+				exp:  adjust(93),
+			}, {
+				name: "V(70).V(6)",
+				fn:   func() Logger { return logger.V(70).V(6) },
+				exp:  adjust(76),
+			}, {
+				name: "V(-1)",
+				fn:   func() Logger { return logger.V(-1) },
+				exp:  0,
+			}, {
+				name: "V(1).V(-1)",
+				fn:   func() Logger { return logger.V(1).V(-1) },
+				exp:  adjust(1),
+			}}
+			for _, in := range inputs {
+				t.Run(in.name, func(t *testing.T) {
+					if want, got := in.exp, in.fn().GetV(); got != want {
+						t.Errorf("expected %d, got %d", want, got)
+					}
+				})
+			}
 		})
 	}
 }
@@ -485,13 +512,4 @@ func getCaller(depth int) string {
 		return "<runtime.FuncForPC failed>"
 	}
 	return fp.Name()
-}
-
-func expectEqual[T comparable](tb testing.TB, msg string, expected, actual T) bool {
-	if expected == actual {
-		return true
-	}
-	tb.Helper()
-	tb.Errorf("Failure: %s: expected to get %v, got %v instead", msg, expected, actual)
-	return false
 }
