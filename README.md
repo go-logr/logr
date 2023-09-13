@@ -94,7 +94,7 @@ logr design but also left out some parts and changed others:
 
 The high-level slog API is explicitly meant to be one of many different APIs
 that can be layered on top of a shared `slog.Handler`. logr is one such
-alternative API, with interoperability provided by the [`slogr`](slogr)
+alternative API, with [interoperability](#slog-interoperability) provided by the [`slogr`](slogr)
 package.
 
 ### Inspiration
@@ -141,6 +141,91 @@ There are implementations for the following logging libraries:
 - **github.com/rs/zerolog**: [zerologr](https://github.com/go-logr/zerologr)
 - **github.com/go-kit/log**: [gokitlogr](https://github.com/tonglil/gokitlogr) (also compatible with github.com/go-kit/kit/log since v0.12.0)
 - **bytes.Buffer** (writing to a buffer): [bufrlogr](https://github.com/tonglil/buflogr) (useful for ensuring values were logged, like during testing)
+
+## slog interoperability
+
+Interoperability goes both ways, using the `logr.Logger` API with a `slog.Handler`
+and using the `slog.Logger` API with a `logr.LogSink`. [slogr](./slogr) provides `NewLogr` and
+`NewSlogHandler` API calls to convert between a `logr.Logger` and a `slog.Handler`.
+As usual, `slog.New` can be used to wrap such a `slog.Handler` in the high-level
+slog API. `slogr` itself leaves that to the caller.
+
+## Using a `logr.Sink` as backend for slog
+
+Ideally, a logr sink implementation should support both logr and slog by
+implementing both the normal logr interface(s) and `slogr.SlogSink`.  Because
+of a conflict in the parameters of the common `Enabled` method, it is [not
+possible to implement both slog.Handler and logr.Sink in the same
+type](https://github.com/golang/go/issues/59110).
+
+If both are supported, log calls can go from the high-level APIs to the backend
+without the need to convert parameters. `NewLogr` and `NewSlogHandler` can
+convert back and forth without adding additional wrappers, with one exception:
+when `Logger.V` was used to adjust the verbosity for a `slog.Handler`, then
+`NewSlogHandler` has to use a wrapper which adjusts the verbosity for future
+log calls.
+
+Such an implementation should also support values that implement specific
+interfaces from both packages for logging (`logr.Marshaler`, `slog.LogValuer`,
+`slog.GroupValue`). logr does not convert those.
+
+Not supporting slog has several drawbacks:
+- Recording source code locations works correctly if the handler gets called
+  through `slog.Logger`, but may be wrong in other cases. That's because a
+  `logr.Sink` does its own stack unwinding instead of using the program counter
+  provided by the high-level API.
+- slog levels <= 0 can be mapped to logr levels by negating the level without a
+  loss of information. But all slog levels > 0 (e.g. `slog.LevelWarning` as
+  used by `slog.Logger.Warn`) must be mapped to 0 before calling the sink
+  because logr does not support "more important than info" levels.
+- The slog group concept is supported by prefixing each key in a key/value
+  pair with the group names, separated by a dot. For structured output like
+  JSON it would be better to group the key/value pairs inside an object.
+- Special slog values and interfaces don't work as expected.
+- The overhead is likely to be higher.
+
+These drawbacks are severe enough that applications using a mixture of slog and
+logr should switch to a different backend.
+
+## Using a `slog.Handler` as backend for logr
+
+Using a plain `slog.Handler` without support for logr works better than the
+other direction:
+- All logr verbosity levels can be mapped 1:1 to their corresponding slog level
+  by negating them.
+- Stack unwinding is done by the `slogr.SlogSink` and the resulting program
+  counter is passed to the `slog.Handler`.
+- Names added via `Logger.WithName` are gathered and recorded in an additional
+  attribute with `logger` as key and the names separated by slash as value.
+- `Logger.Error` is turned into a log record with `slog.LevelError` as level
+  and an additional attribute with `err` as key, if an error was provided.
+
+The main drawback is that `logr.Marshaler` will not be supported. Types should
+ideally support both `logr.Marshaler` and `slog.Valuer`. If compatibility
+with logr implementations without slog support is not important, then
+`slog.Valuer` is sufficient.
+
+## Context support for slog
+
+Storing a logger in a `context.Context` is not supported by
+slog. `logr.NewContext` and `logr.FromContext` can be used with slog like this
+to fill this gap:
+
+    func HandlerFromContext(ctx context.Context) slog.Handler {
+        logger, err := logr.FromContext(ctx)
+        if err == nil {
+            return slogr.NewSlogHandler(logger)
+        }
+        return slog.Default().Handler()
+    }
+
+    func ContextWithHandler(ctx context.Context, handler slog.Handler) context.Context {
+        return logr.NewContext(ctx, slogr.NewLogr(handler))
+    }
+
+The downside is that storing and retrieving a `slog.Handler` needs more
+allocations compared to using a `logr.Logger`. Therefore the recommendation is
+to use the `logr.Logger` API in code which uses contextual logging.
 
 ## FAQ
 
