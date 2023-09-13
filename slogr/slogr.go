@@ -21,7 +21,8 @@ limitations under the License.
 // API and of a logr.LogSink through the slog.Handler and thus slog.Logger
 // APIs.
 //
-// Both approaches are currently experimental and need further work.
+// See the README in the top-level [./logr] package for a discussion of
+// interoperability.
 package slogr
 
 import (
