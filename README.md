@@ -91,6 +91,7 @@ logr design but also left out some parts and changed others:
 | Adding a name to a logger | `WithName` | no API |
 | Modify verbosity of log entries in a call chain | `V` | no API |
 | Grouping of key/value pairs | not supported | `WithGroup`, `GroupValue` |
+| Pass context for extracting additional values | no API | API variants like `InfoCtx` |
 
 The high-level slog API is explicitly meant to be one of many different APIs
 that can be layered on top of a shared `slog.Handler`. logr is one such
@@ -208,24 +209,36 @@ with logr implementations without slog support is not important, then
 ### Context support for slog
 
 Storing a logger in a `context.Context` is not supported by
-slog. `logr.NewContext` and `logr.FromContext` can be used with slog like this
-to fill this gap:
+slog. `NewContextWithSlogLogger` and `FromContextAsSlogLogger` can be
+used to fill this gap. They store and retrieve a `slog.Logger` pointer
+under the same context key that is also used by `NewContext` and
+`FromContext` for `logr.Logger` value.
 
-    func HandlerFromContext(ctx context.Context) slog.Handler {
-        logger, err := logr.FromContext(ctx)
-        if err == nil {
-            return ToSlogHandler(logger)
-        }
-        return slog.Default().Handler()
-    }
+When `NewContextWithSlogLogger` is followed by `FromContext`, the latter will
+automatically convert the `slog.Logger` to a
+`logr.Logger`. `FromContextAsSlogLogger` does the same for the other direction.
 
-    func ContextWithHandler(ctx context.Context, handler slog.Handler) context.Context {
-        return logr.NewContext(ctx, FromSlogHandler(handler))
-    }
+With this approach, binaries which use either slog or logr are as efficient as
+possible with no unnecessary allocations. This is also why the API stores a
+`slog.Logger` pointer: when storing a `slog.Handler`, creating a `slog.Logger`
+on retrieval would need to allocate one.
 
-The downside is that storing and retrieving a `slog.Handler` needs more
-allocations compared to using a `logr.Logger`. Therefore the recommendation is
-to use the `logr.Logger` API in code which uses contextual logging.
+The downside is that switching back and forth needs more allocations. Because
+logr is the API that is already in use by different packages, in particular
+Kubernetes, the recommendation is to use the `logr.Logger` API in code which
+uses contextual logging.
+
+An alternative to adding values to a logger and storing that logger in the
+context is to store the values in the context and to configure a logging
+backend to extract those values when emitting log entries. This only works when
+log calls are passed the context, which is not supported by the logr API.
+
+With the slog API, it is possible, but not
+required. https://github.com/veqryn/slog-context is a package for slog which
+provides additional support code for this approach. It also contains wrappers
+for the context functions in logr, so developers who prefer to not use the logr
+APIs directly can use those instead and the resulting code will still be
+interoperable with logr.
 
 ## FAQ
 
