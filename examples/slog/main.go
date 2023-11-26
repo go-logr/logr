@@ -28,7 +28,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
-	"github.com/go-logr/logr/slogr"
 )
 
 type e struct {
@@ -62,7 +61,7 @@ func main() {
 		Level:     slog.Level(-1),
 	}
 	handler := slog.NewJSONHandler(os.Stderr, &opts)
-	logrLogger := slogr.NewLogr(handler)
+	logrLogger := logr.FromSlogHandler(handler)
 	logrExample(logrLogger)
 
 	logrLogger = funcr.NewJSON(
@@ -72,7 +71,7 @@ func main() {
 			LogTimestamp: true,
 			Verbosity:    1,
 		})
-	slogLogger := slog.New(slogr.NewSlogHandler(logrLogger))
+	slogLogger := slog.New(logr.ToSlogHandler(logrLogger))
 	slogExample(slogLogger)
 }
 
@@ -91,7 +90,7 @@ func logrExample(log logr.Logger) {
 
 func slogExample(log *slog.Logger) {
 	// There's no guarantee that this logs the right source code location.
-	// It works for Go 1.21.0 by compensating in slogr.NewSlogHandler
+	// It works for Go 1.21.0 by compensating in logr.ToSlogHandler
 	// for the additional callers, but those might change.
 	log = log.With("saved", "value")
 	log.Info("1) hello", "val1", 1, "val2", map[string]int{"k": 1})
