@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package slogr_test
+package logr_test
 
 import (
 	"bytes"
@@ -36,7 +36,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
-	"github.com/go-logr/logr/slogr"
 )
 
 var debugWithoutTime = &slog.HandlerOptions{
@@ -49,12 +48,12 @@ var debugWithoutTime = &slog.HandlerOptions{
 	Level: slog.LevelDebug,
 }
 
-func ExampleNew() {
-	logger := slogr.NewLogr(slog.NewTextHandler(os.Stdout, debugWithoutTime))
+func ExampleFromSlogHandler() {
+	logrLogger := logr.FromSlogHandler(slog.NewTextHandler(os.Stdout, debugWithoutTime))
 
-	logger.Info("hello world")
-	logger.Error(errors.New("fake error"), "ignore me")
-	logger.WithValues("x", 1, "y", 2).WithValues("str", "abc").WithName("foo").WithName("bar").V(4).Info("with values, verbosity and name")
+	logrLogger.Info("hello world")
+	logrLogger.Error(errors.New("fake error"), "ignore me")
+	logrLogger.WithValues("x", 1, "y", 2).WithValues("str", "abc").WithName("foo").WithName("bar").V(4).Info("with values, verbosity and name")
 
 	// Output:
 	// level=INFO msg="hello world"
@@ -62,7 +61,7 @@ func ExampleNew() {
 	// level=DEBUG msg="with values, verbosity and name" x=1 y=2 str=abc logger=foo/bar
 }
 
-func ExampleNewSlogLogger() {
+func ExampleToSlogHandler() {
 	funcrLogger := funcr.New(func(prefix, args string) {
 		if prefix != "" {
 			fmt.Fprintln(os.Stdout, prefix, args)
@@ -73,13 +72,13 @@ func ExampleNewSlogLogger() {
 		Verbosity: 10,
 	})
 
-	logger := slog.New(slogr.NewSlogHandler(funcrLogger))
-	logger.Info("hello world")
-	logger.Error("ignore me", "err", errors.New("fake error"))
-	logger.With("x", 1, "y", 2).WithGroup("group").With("str", "abc").Warn("with values and group")
+	slogLogger := slog.New(logr.ToSlogHandler(funcrLogger))
+	slogLogger.Info("hello world")
+	slogLogger.Error("ignore me", "err", errors.New("fake error"))
+	slogLogger.With("x", 1, "y", 2).WithGroup("group").With("str", "abc").Warn("with values and group")
 
-	logger = slog.New(slogr.NewSlogHandler(funcrLogger.V(int(-slog.LevelDebug))))
-	logger.Info("info message reduced to debug level")
+	slogLogger = slog.New(logr.ToSlogHandler(funcrLogger.V(int(-slog.LevelDebug))))
+	slogLogger.Info("info message reduced to debug level")
 
 	// Output:
 	// "level"=0 "msg"="hello world"
@@ -92,7 +91,7 @@ func TestWithCallDepth(t *testing.T) {
 	debugWithCaller := *debugWithoutTime
 	debugWithCaller.AddSource = true
 	var buffer bytes.Buffer
-	logger := slogr.NewLogr(slog.NewTextHandler(&buffer, &debugWithCaller))
+	logger := logr.FromSlogHandler(slog.NewTextHandler(&buffer, &debugWithCaller))
 
 	logHelper(logger)
 	_, file, line, _ := runtime.Caller(0)
@@ -116,7 +115,7 @@ func TestJSONHandler(t *testing.T) {
 }
 
 var _ logr.LogSink = testSlogSink{}
-var _ slogr.SlogSink = testSlogSink{}
+var _ logr.SlogSink = testSlogSink{}
 
 // testSlogSink is only used through slog and thus doesn't need to implement the
 // normal LogSink methods.
@@ -134,10 +133,10 @@ func (s testSlogSink) WithValues(...interface{}) logr.LogSink { return s }
 func (s testSlogSink) Handle(ctx context.Context, record slog.Record) error {
 	return s.handler.Handle(ctx, record)
 }
-func (s testSlogSink) WithAttrs(attrs []slog.Attr) slogr.SlogSink {
+func (s testSlogSink) WithAttrs(attrs []slog.Attr) logr.SlogSink {
 	return testSlogSink{handler: s.handler.WithAttrs(attrs)}
 }
-func (s testSlogSink) WithGroup(name string) slogr.SlogSink {
+func (s testSlogSink) WithGroup(name string) logr.SlogSink {
 	return testSlogSink{handler: s.handler.WithGroup(name)}
 }
 
@@ -178,7 +177,7 @@ func TestFuncrHandler(t *testing.T) {
 func testSlog(t *testing.T, createLogger func(buffer *bytes.Buffer) logr.Logger, exceptions ...string) {
 	var buffer bytes.Buffer
 	logger := createLogger(&buffer)
-	handler := slogr.NewSlogHandler(logger)
+	handler := logr.ToSlogHandler(logger)
 	err := slogtest.TestHandler(handler, func() []map[string]any {
 		var ms []map[string]any
 		for _, line := range bytes.Split(buffer.Bytes(), []byte{'\n'}) {
@@ -223,28 +222,28 @@ func containsOne(hay string, needles ...string) bool {
 }
 
 func TestDiscard(t *testing.T) {
-	logger := slog.New(slogr.NewSlogHandler(logr.Discard()))
+	logger := slog.New(logr.ToSlogHandler(logr.Discard()))
 	logger.WithGroup("foo").With("x", 1).Info("hello")
 }
 
 func TestConversion(t *testing.T) {
 	d := logr.Discard()
-	d2 := slogr.NewLogr(slogr.NewSlogHandler(d))
+	d2 := logr.FromSlogHandler(logr.ToSlogHandler(d))
 	expectEqual(t, d, d2)
 
 	e := logr.Logger{}
-	e2 := slogr.NewLogr(slogr.NewSlogHandler(e))
+	e2 := logr.FromSlogHandler(logr.ToSlogHandler(e))
 	expectEqual(t, e, e2)
 
 	f := funcr.New(func(prefix, args string) {}, funcr.Options{})
-	f2 := slogr.NewLogr(slogr.NewSlogHandler(f))
+	f2 := logr.FromSlogHandler(logr.ToSlogHandler(f))
 	expectEqual(t, f, f2)
 
 	text := slog.NewTextHandler(io.Discard, nil)
-	text2 := slogr.NewSlogHandler(slogr.NewLogr(text))
+	text2 := logr.ToSlogHandler(logr.FromSlogHandler(text))
 	expectEqual(t, text, text2)
 
-	text3 := slogr.NewSlogHandler(slogr.NewLogr(text).V(1))
+	text3 := logr.ToSlogHandler(logr.FromSlogHandler(text).V(1))
 	if handler, ok := text3.(interface {
 		GetLevel() slog.Level
 	}); ok {
