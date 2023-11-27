@@ -227,7 +227,51 @@ func New(sink LogSink) Logger {
 // logger and thus is only safe to use for loggers that are not currently being
 // used concurrently.
 func (l *Logger) setSink(sink LogSink) {
+	// Invalidate the cached result.
+	l.context.sinkWithContextValues = nil
 	l.sink = sink
+}
+
+// setContext stores the context and updates any related fields. It mutates the
+// logger and thus is only safe to use for loggers that are not currently being
+// used concurrently.
+func (l *Logger) setContext(ctx context.Context) {
+	l.context.ctx = ctx
+	l.context.sinkWithContextValues = nil
+}
+
+// setContextReaders stores the readers and updates any related fields. It mutates the
+// logger and thus is only safe to use for loggers that are not currently being
+// used concurrently.
+func (l *Logger) setContextReaders(readers ...ContextReader) {
+	if len(readers) == 0 {
+		return
+	}
+
+	if l.context.readers != nil {
+		l.context.readers = mergeReaders(*l.context.readers, readers)
+	} else {
+		l.context.readers = mergeReaders(readers)
+	}
+	l.context.sinkWithContextValues = nil
+}
+
+// mergeReaders combines different slices into one. If a single one is passed,
+// it will still create a new slice and copy readers to make the result
+// independent.
+func mergeReaders(readerSlices ...[]ContextReader) *[]ContextReader {
+	n := 0
+	for _, readers := range readerSlices {
+		n += len(readers)
+	}
+	if n == 0 {
+		return nil
+	}
+	cp := make([]ContextReader, 0, n)
+	for _, readers := range readerSlices {
+		cp = append(cp, readers...)
+	}
+	return &cp
 }
 
 // GetSink returns the stored sink.
@@ -253,6 +297,27 @@ func (l Logger) WithSink(sink LogSink) Logger {
 type Logger struct {
 	sink  LogSink
 	level int
+
+	// This is embedded to minimize allocations.
+	context contextMeta
+}
+
+// contextMeta is shared by different Logger instances. It combines everything
+// that is needed to retrieve key/value pairs from a context.
+type contextMeta struct {
+	ctx     context.Context
+	readers *[]ContextReader // Pointer to make struct comparable. Non-nil implies non-empty.
+
+	// sinkWithContextValues caches the result of WithValues for the
+	// Logger's sink. This is either unset (Load returns nil) or contains a
+	// LogSink that is derived from the Logger's sink with context values
+	// added via WithValues.
+	//
+	// Because this is embedded in Logger, a Logger copied from some Logger which
+	// already populated this cached sink will be able to reuse it. But when
+	// a copied Logger populates it, the parent or sibling Logger's will not
+	// benefit and themselves will have to extract values from the context.
+	sinkWithContextValues LogSink
 }
 
 // Enabled tests whether this Logger is enabled.  For example, commandline
@@ -281,7 +346,7 @@ func (l Logger) Info(msg string, keysAndValues ...any) {
 		if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
 			withHelper.GetCallStackHelper()()
 		}
-		l.sink.Info(l.level, msg, keysAndValues...)
+		l.sinkWithContextValues().Info(l.level, msg, keysAndValues...)
 	}
 }
 
@@ -302,7 +367,35 @@ func (l Logger) Error(err error, msg string, keysAndValues ...any) {
 	if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
 		withHelper.GetCallStackHelper()()
 	}
-	l.sink.Error(err, msg, keysAndValues...)
+	l.sinkWithContextValues().Error(err, msg, keysAndValues...)
+}
+
+// sinkWithContextValues builds a result from the original sink, which may have
+// user-defined pairs from WithValues(), and then adds pairs from context.
+// The result is cached for reuse by the same or other Logger instances that
+// share the same l.context instance.
+//
+// Every time we change the user-defined pairs, the context, or the reader
+// function(s), the cached result is discarded, and this path will be called
+// again.
+func (l Logger) sinkWithContextValues() LogSink {
+	if l.skipContextValues() {
+		return l.sink
+	}
+	if l.context.sinkWithContextValues != nil {
+		// We have done the steps below already, no need to repeat
+		// them.
+		return l.context.sinkWithContextValues
+	}
+	sink := l.sink
+	contextKeysAndValues := l.valuesFromContext()
+	if len(contextKeysAndValues) > 0 {
+		sink = sink.WithValues(contextKeysAndValues...)
+	}
+	// Even if we didn't modify the sink, store it to enable
+	// taking the fast path above.
+	l.context.sinkWithContextValues = sink
+	return sink
 }
 
 // V returns a new Logger instance for a specific verbosity level, relative to
@@ -410,12 +503,73 @@ func (l Logger) IsZero() bool {
 	return l.sink == nil
 }
 
+// WithContext stores a context in the Logger. If the Logger also has keys set
+// that it is meant to log from a context, then the values for those keys from
+// the given context will be added to all log entries.
+func (l Logger) WithContext(ctx context.Context) Logger {
+	if l.sink == nil {
+		return l
+	}
+
+	l.setContext(ctx)
+	return l
+}
+
+// ContextReader returns additional key/value pairs for data that
+// was stored in the context. These pairs will be logged via WithValues
+// and thus may get overridden by explicit log parameters if there is a
+// key conflict.
+type ContextReader func(ctx context.Context) []interface{}
+
+// WithContextValues extends the list of ContextReaders. When
+// given a context through WithContext, the Logger will invoke
+// each reader and log the key/value pairs that they return as
+// if they had been passed to WithValues right before a log call.
+func (l Logger) WithContextValues(readers ...ContextReader) Logger {
+	if l.sink == nil || len(readers) == 0 {
+		return l
+	}
+
+	l.setContextReaders(readers...)
+	return l
+}
+
+func (l Logger) valuesFromContext() []interface{} {
+	if l.skipContextValues() {
+		return nil
+	}
+
+	// Fast path for a single handler: just return its result directly.
+	if len(*l.context.readers) == 1 {
+		return (*l.context.readers)[0](l.context.ctx)
+	}
+
+	// We don't really know how large this has to be. Let's
+	// assume that each reader returns at most 32 key/value
+	// pairs, of which each needs two entries.
+	keysAndValues := make([]interface{}, 0, 64*len(*l.context.readers))
+	for _, reader := range *l.context.readers {
+		keysAndValues = append(keysAndValues, reader(l.context.ctx)...)
+	}
+	return keysAndValues
+}
+
+// skipContextValues returns true when either context or readers are missing
+// and therefore extracting key/value pairs from the context isn't possible.
+func (l Logger) skipContextValues() bool {
+	// WithContextValues ensures that l.contextReaders is never set
+	// to an empty slice.
+	return l.context.ctx == nil || l.context.readers == nil
+}
+
 // contextKey is how we find Loggers in a context.Context.
 type contextKey struct{}
 
 // FromContext returns a Logger from ctx or an error if no Logger is found.
+// The value returned has already had WithContext called.
 func FromContext(ctx context.Context) (Logger, error) {
 	if v, ok := ctx.Value(contextKey{}).(Logger); ok {
+		v.setContext(ctx)
 		return v, nil
 	}
 
@@ -435,8 +589,10 @@ func (notFoundError) IsNotFound() bool {
 
 // FromContextOrDiscard returns a Logger from ctx.  If no Logger is found, this
 // returns a Logger that discards all log messages.
+// The value returned has already had WithContext called.
 func FromContextOrDiscard(ctx context.Context) Logger {
 	if v, ok := ctx.Value(contextKey{}).(Logger); ok {
+		v.setContext(ctx)
 		return v
 	}
 

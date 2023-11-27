@@ -17,6 +17,7 @@ limitations under the License.
 package logr
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -272,4 +273,58 @@ func BenchmarkFuncrJSONLogInfoErrorValue(b *testing.B) {
 func BenchmarkFuncrJSONLogInfoMarshalerValue(b *testing.B) {
 	var log logr.Logger = funcr.NewJSON(noopJSON, funcr.Options{})
 	doMarshalerValue(b, log)
+}
+
+// These variables are used to capture the final loop variables
+// below. Without that step, the compiler would complain about
+// unused local variables.
+//
+// We could ignore the return values, but that would make the
+// benchmarks less realistic.
+var (
+	loggerResult logr.Logger
+	errResult    error
+)
+
+func BenchmarkFromContext(b *testing.B) {
+	var logger logr.Logger
+	var err error
+	ctx := context.Background()
+	ctxDiscard := logr.NewContext(ctx, logr.Discard())
+
+	b.Run("no-logger", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			logger, err = logr.FromContext(ctx)
+		}
+	})
+	loggerResult = logger
+	errResult = err
+
+	b.Run("with-logger", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			logger, err = logr.FromContext(ctxDiscard)
+		}
+	})
+	loggerResult = logger
+	errResult = err
+}
+
+func BenchmarkFromContextOrDiscard(b *testing.B) {
+	var logger logr.Logger
+	ctx := context.Background()
+	ctxDiscard := logr.NewContext(ctx, logr.Discard())
+
+	b.Run("no-logger", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			logger = logr.FromContextOrDiscard(ctx)
+		}
+	})
+	loggerResult = logger
+
+	b.Run("with-logger", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			logger = logr.FromContextOrDiscard(ctxDiscard)
+		}
+	})
+	loggerResult = logger
 }
