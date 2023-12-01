@@ -542,9 +542,7 @@ func (f Formatter) prettyWithFlags(value any, flags uint32, depth int) string {
 				name = fld.Name
 			}
 			// field names can't contain characters which need escaping
-			buf.WriteByte('"')
-			buf.WriteString(name)
-			buf.WriteByte('"')
+			buf.WriteString(f.quoted(name, false))
 			buf.WriteByte(f.colon())
 			buf.WriteString(f.prettyWithFlags(v.Field(i).Interface(), 0, depth+1))
 		}
