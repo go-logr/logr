@@ -41,17 +41,21 @@ func helper2(log logr.Logger, msg string) {
 }
 
 func main() {
-	log := funcr.New(
-		func(pfx, args string) { fmt.Println(pfx, args) },
+	// logr
+	log := funcr.NewJSON(
+		func(arg string) { fmt.Println(arg) },
 		funcr.Options{
 			LogCaller:    funcr.All,
 			LogTimestamp: true,
 			Verbosity:    1,
 		})
-	example(log.WithValues("module", "example"))
+	logrExample(log.WithName("logr").WithValues("mode", "funcr"))
+
+	// slog (if possible)
+	doSlog(log)
 }
 
-func example(log logr.Logger) {
+func logrExample(log logr.Logger) {
 	log.Info("hello", "val1", 1, "val2", map[string]int{"k": 1})
 	log.V(1).Info("you should see this")
 	log.V(1).V(1).Info("you should NOT see this")

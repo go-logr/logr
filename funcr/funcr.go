@@ -227,12 +227,15 @@ func newFormatter(opts Options, outfmt outputFormat) Formatter {
 // implementation. It should be constructed with NewFormatter. Some of
 // its methods directly implement logr.LogSink.
 type Formatter struct {
-	outputFormat outputFormat
-	prefix       string
-	values       []any
-	valuesStr    string
-	depth        int
-	opts         *Options
+	outputFormat    outputFormat
+	prefix          string
+	values          []any
+	valuesStr       string
+	parentValuesStr string
+	depth           int
+	opts            *Options
+	group           string // for slog groups
+	groupDepth      int
 }
 
 // outputFormat indicates which outputFormat to use.
@@ -253,15 +256,17 @@ func (f Formatter) render(builtins, args []any) string {
 	// Empirically bytes.Buffer is faster than strings.Builder for this.
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
 	if f.outputFormat == outputJSON {
-		buf.WriteByte('{')
+		buf.WriteByte('{') // for the whole line
 	}
+
 	vals := builtins
 	if hook := f.opts.RenderBuiltinsHook; hook != nil {
 		vals = hook(f.sanitize(vals))
 	}
 	f.flatten(buf, vals, false, false) // keys are ours, no need to escape
 	continuing := len(builtins) > 0
-	if len(f.valuesStr) > 0 {
+
+	if f.parentValuesStr != "" {
 		if continuing {
 			if f.outputFormat == outputJSON {
 				buf.WriteByte(',')
@@ -269,17 +274,60 @@ func (f Formatter) render(builtins, args []any) string {
 				buf.WriteByte(' ')
 			}
 		}
+		buf.WriteString(f.parentValuesStr)
 		continuing = true
-		buf.WriteString(f.valuesStr)
 	}
+
+	groupDepth := f.groupDepth
+	if f.group != "" {
+		if f.valuesStr != "" || len(args) != 0 {
+			if continuing {
+				if f.outputFormat == outputJSON {
+					buf.WriteByte(',')
+				} else {
+					buf.WriteByte(' ')
+				}
+			}
+			buf.WriteString(f.quoted(f.group, true)) // escape user-provided keys
+			if f.outputFormat == outputJSON {
+				buf.WriteByte(':')
+			} else {
+				buf.WriteByte('=')
+			}
+			buf.WriteByte('{') // for the group
+			continuing = false
+		} else {
+			// The group was empty
+			groupDepth--
+		}
+	}
+
+	if f.valuesStr != "" {
+		if continuing {
+			if f.outputFormat == outputJSON {
+				buf.WriteByte(',')
+			} else {
+				buf.WriteByte(' ')
+			}
+		}
+		buf.WriteString(f.valuesStr)
+		continuing = true
+	}
+
 	vals = args
 	if hook := f.opts.RenderArgsHook; hook != nil {
 		vals = hook(f.sanitize(vals))
 	}
 	f.flatten(buf, vals, continuing, true) // escape user-provided keys
-	if f.outputFormat == outputJSON {
-		buf.WriteByte('}')
+
+	for i := 0; i < groupDepth; i++ {
+		buf.WriteByte('}') // for the groups
 	}
+
+	if f.outputFormat == outputJSON {
+		buf.WriteByte('}') // for the whole line
+	}
+
 	return buf.String()
 }
 
@@ -316,14 +364,7 @@ func (f Formatter) flatten(buf *bytes.Buffer, kvList []any, continuing bool, esc
 			}
 		}
 
-		if escapeKeys {
-			buf.WriteString(prettyString(k))
-		} else {
-			// this is faster
-			buf.WriteByte('"')
-			buf.WriteString(k)
-			buf.WriteByte('"')
-		}
+		buf.WriteString(f.quoted(k, escapeKeys))
 		if f.outputFormat == outputJSON {
 			buf.WriteByte(':')
 		} else {
@@ -332,6 +373,14 @@ func (f Formatter) flatten(buf *bytes.Buffer, kvList []any, continuing bool, esc
 		buf.WriteString(f.pretty(v))
 	}
 	return kvList
+}
+
+func (f Formatter) quoted(str string, escape bool) string {
+	if escape {
+		return prettyString(str)
+	}
+	// this is faster
+	return `"` + str + `"`
 }
 
 func (f Formatter) pretty(value any) string {
@@ -704,6 +753,57 @@ func (f Formatter) sanitize(kvList []any) []any {
 		}
 	}
 	return kvList
+}
+
+// startGroup opens a new group scope (basically a sub-struct), which locks all
+// the current saved values and starts them anew.  This is needed to satisfy
+// slog.
+func (f *Formatter) startGroup(group string) {
+	// Unnamed groups are just inlined.
+	if group == "" {
+		return
+	}
+
+	// Any saved values can no longer be changed.
+	buf := bytes.NewBuffer(make([]byte, 0, 1024))
+	continuing := false
+
+	if f.parentValuesStr != "" {
+		buf.WriteString(f.parentValuesStr)
+		continuing = true
+	}
+
+	if f.group != "" && f.valuesStr != "" {
+		if continuing {
+			buf.WriteByte(',')
+		}
+		buf.WriteString(f.quoted(f.group, true)) // escape user-provided keys
+		if f.outputFormat == outputJSON {
+			buf.WriteByte(':')
+		} else {
+			buf.WriteByte('=')
+		}
+		buf.WriteByte('{') // for the group
+		continuing = false
+	}
+
+	if f.valuesStr != "" {
+		if continuing {
+			buf.WriteByte(',')
+		}
+		buf.WriteString(f.valuesStr)
+	}
+
+	// NOTE: We don't close the scope here - that's done later, when a log line
+	// is actually rendered (because we have N scopes to close).
+
+	f.parentValuesStr = buf.String()
+
+	// Start collecting new values.
+	f.group = group
+	f.groupDepth++
+	f.valuesStr = ""
+	f.values = nil
 }
 
 // Init configures this Formatter from runtime info, such as the call depth
