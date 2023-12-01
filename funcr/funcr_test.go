@@ -722,7 +722,7 @@ func TestRender(t *testing.T) {
 		builtins:   makeKV("int", PseudoStruct(makeKV("intsub", 1))),
 		values:     makeKV("str", PseudoStruct(makeKV("strsub", "2"))),
 		args:       makeKV("bool", PseudoStruct(makeKV("boolsub", true))),
-		expectKV:   `"int"={"intsub":1} "str"={"strsub":"2"} "bool"={"boolsub":true}`,
+		expectKV:   `"int"={"intsub"=1} "str"={"strsub"="2"} "bool"={"boolsub"=true}`,
 		expectJSON: `{"int":{"intsub":1},"str":{"strsub":"2"},"bool":{"boolsub":true}}`,
 	}, {
 		name:       "escapes",
@@ -759,12 +759,12 @@ func TestRender(t *testing.T) {
 			F1 string
 			F2 int
 		}{"arg", 789}, "val"),
-		expectKV:   `"<non-string-key: {"F1":"builtin" >"="val" "<non-string-key: {\"F1\":\"value\" \"F>"="val" "<non-string-key: {\"F1\":\"arg\" \"F2\">"="val"`,
+		expectKV:   `"<non-string-key: {"F1"="builtin" >"="val" "<non-string-key: {\"F1\"=\"value\" \"F>"="val" "<non-string-key: {\"F1\"=\"arg\" \"F2\">"="val"`,
 		expectJSON: `{"<non-string-key: {"F1":"builtin",>":"val","<non-string-key: {\"F1\":\"value\",\"F>":"val","<non-string-key: {\"F1\":\"arg\",\"F2\">":"val"}`,
 	}, {
 		name:       "json rendering with json.RawMessage",
 		args:       makeKV("key", raw),
-		expectKV:   `"key"={"message":[123 34 105 110 116 49 34 58 48 44 34 45 34 58 48 44 34 73 110 116 53 34 58 48 125]}`,
+		expectKV:   `"key"={"message"=[123 34 105 110 116 49 34 58 48 44 34 45 34 58 48 44 34 73 110 116 53 34 58 48 125]}`,
 		expectJSON: `{"key":{"message":{"int1":0,"-":0,"Int5":0}}}`,
 	}, {
 		name:       "byte array not json.RawMessage",
@@ -774,7 +774,7 @@ func TestRender(t *testing.T) {
 	}, {
 		name:       "json rendering with empty json.RawMessage",
 		args:       makeKV("key", &Trawjson{}),
-		expectKV:   `"key"={"message":[]}`,
+		expectKV:   `"key"={"message"=[]}`,
 		expectJSON: `{"key":{"message":null}}`,
 	}}
 
@@ -918,13 +918,13 @@ func TestInfoWithCaller(t *testing.T) {
 		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: All}))
 		sink.Info(0, "msg")
 		_, file, line, _ := runtime.Caller(0)
-		expect := fmt.Sprintf(`"caller"={"file":%q "line":%d} "level"=0 "msg"="msg"`, filepath.Base(file), line-1)
+		expect := fmt.Sprintf(`"caller"={"file"=%q "line"=%d} "level"=0 "msg"="msg"`, filepath.Base(file), line-1)
 		if capt.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 		sink.Error(fmt.Errorf("error"), "msg")
 		_, file, line, _ = runtime.Caller(0)
-		expect = fmt.Sprintf(`"caller"={"file":%q "line":%d} "msg"="msg" "error"="error"`, filepath.Base(file), line-1)
+		expect = fmt.Sprintf(`"caller"={"file"=%q "line"=%d} "msg"="msg" "error"="error"`, filepath.Base(file), line-1)
 		if capt.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
@@ -951,13 +951,13 @@ func TestInfoWithCaller(t *testing.T) {
 		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: All, LogCallerFunc: true}))
 		sink.Info(0, "msg")
 		_, file, line, _ := runtime.Caller(0)
-		expect := fmt.Sprintf(`"caller"={"file":%q "line":%d "function":%q} "level"=0 "msg"="msg"`, filepath.Base(file), line-1, thisFunc)
+		expect := fmt.Sprintf(`"caller"={"file"=%q "line"=%d "function"=%q} "level"=0 "msg"="msg"`, filepath.Base(file), line-1, thisFunc)
 		if capt.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
 		sink.Error(fmt.Errorf("error"), "msg")
 		_, file, line, _ = runtime.Caller(0)
-		expect = fmt.Sprintf(`"caller"={"file":%q "line":%d "function":%q} "msg"="msg" "error"="error"`, filepath.Base(file), line-1, thisFunc)
+		expect = fmt.Sprintf(`"caller"={"file"=%q "line"=%d "function"=%q} "msg"="msg" "error"="error"`, filepath.Base(file), line-1, thisFunc)
 		if capt.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
@@ -984,7 +984,7 @@ func TestInfoWithCaller(t *testing.T) {
 		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: Info}))
 		sink.Info(0, "msg")
 		_, file, line, _ := runtime.Caller(0)
-		expect := fmt.Sprintf(`"caller"={"file":%q "line":%d} "level"=0 "msg"="msg"`, filepath.Base(file), line-1)
+		expect := fmt.Sprintf(`"caller"={"file"=%q "line"=%d} "level"=0 "msg"="msg"`, filepath.Base(file), line-1)
 		if capt.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
@@ -1004,7 +1004,7 @@ func TestInfoWithCaller(t *testing.T) {
 		}
 		sink.Error(fmt.Errorf("error"), "msg")
 		_, file, line, _ := runtime.Caller(0)
-		expect = fmt.Sprintf(`"caller"={"file":%q "line":%d} "msg"="msg" "error"="error"`, filepath.Base(file), line-1)
+		expect = fmt.Sprintf(`"caller"={"file"=%q "line"=%d} "msg"="msg" "error"="error"`, filepath.Base(file), line-1)
 		if capt.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
@@ -1069,7 +1069,7 @@ func TestErrorWithCaller(t *testing.T) {
 		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: All}))
 		sink.Error(fmt.Errorf("err"), "msg")
 		_, file, line, _ := runtime.Caller(0)
-		expect := fmt.Sprintf(`"caller"={"file":%q "line":%d} "msg"="msg" "error"="err"`, filepath.Base(file), line-1)
+		expect := fmt.Sprintf(`"caller"={"file"=%q "line"=%d} "msg"="msg" "error"="err"`, filepath.Base(file), line-1)
 		if capt.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
@@ -1089,7 +1089,7 @@ func TestErrorWithCaller(t *testing.T) {
 		sink := newSink(capt.Func, NewFormatter(Options{LogCaller: Error}))
 		sink.Error(fmt.Errorf("err"), "msg")
 		_, file, line, _ := runtime.Caller(0)
-		expect := fmt.Sprintf(`"caller"={"file":%q "line":%d} "msg"="msg" "error"="err"`, filepath.Base(file), line-1)
+		expect := fmt.Sprintf(`"caller"={"file"=%q "line"=%d} "msg"="msg" "error"="err"`, filepath.Base(file), line-1)
 		if capt.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
@@ -1326,7 +1326,7 @@ func TestInfoWithCallDepth(t *testing.T) {
 		sink = dSink.WithCallDepth(1)
 		sink.Info(0, "msg")
 		_, file, line, _ := runtime.Caller(1)
-		expect := fmt.Sprintf(`"caller"={"file":%q "line":%d} "level"=0 "msg"="msg"`, filepath.Base(file), line)
+		expect := fmt.Sprintf(`"caller"={"file"=%q "line"=%d} "level"=0 "msg"="msg"`, filepath.Base(file), line)
 		if capt.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}
@@ -1341,7 +1341,7 @@ func TestErrorWithCallDepth(t *testing.T) {
 		sink = dSink.WithCallDepth(1)
 		sink.Error(fmt.Errorf("err"), "msg")
 		_, file, line, _ := runtime.Caller(1)
-		expect := fmt.Sprintf(`"caller"={"file":%q "line":%d} "msg"="msg" "error"="err"`, filepath.Base(file), line)
+		expect := fmt.Sprintf(`"caller"={"file"=%q "line"=%d} "msg"="msg" "error"="err"`, filepath.Base(file), line)
 		if capt.log != expect {
 			t.Errorf("\nexpected %q\n     got %q", expect, capt.log)
 		}

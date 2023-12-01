@@ -51,5 +51,5 @@ func ExampleMarshaler() {
 	l.Info("as struct", "pod", pod)
 	// Output:
 	// "level"=0 "msg"="as string" "pod"="kube-system/some-pod"
-	// "level"=0 "msg"="as struct" "pod"={"name":"some-pod" "namespace":"kube-system"}
+	// "level"=0 "msg"="as struct" "pod"={"name"="some-pod" "namespace"="kube-system"}
 }

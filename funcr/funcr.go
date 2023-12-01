@@ -281,11 +281,7 @@ func (f Formatter) render(builtins, args []any) string {
 				buf.WriteByte(f.comma())
 			}
 			buf.WriteString(f.quoted(f.group, true)) // escape user-provided keys
-			if f.outputFormat == outputJSON {
-				buf.WriteByte(':')
-			} else {
-				buf.WriteByte('=')
-			}
+			buf.WriteByte(f.colon())
 			buf.WriteByte('{') // for the group
 			continuing = false
 		} else {
@@ -360,11 +356,7 @@ func (f Formatter) flatten(buf *bytes.Buffer, kvList []any, continuing bool, esc
 		}
 
 		buf.WriteString(f.quoted(k, escapeKeys))
-		if f.outputFormat == outputJSON {
-			buf.WriteByte(':')
-		} else {
-			buf.WriteByte('=')
-		}
+		buf.WriteByte(f.colon())
 		buf.WriteString(f.pretty(v))
 	}
 	return kvList
@@ -383,6 +375,13 @@ func (f Formatter) comma() byte {
 		return ','
 	}
 	return ' '
+}
+
+func (f Formatter) colon() byte {
+	if f.outputFormat == outputJSON {
+		return ':'
+	}
+	return '='
 }
 
 func (f Formatter) pretty(value any) string {
@@ -463,7 +462,7 @@ func (f Formatter) prettyWithFlags(value any, flags uint32, depth int) string {
 			k, _ := v[i].(string) // sanitize() above means no need to check success
 			// arbitrary keys might need escaping
 			buf.WriteString(prettyString(k))
-			buf.WriteByte(':')
+			buf.WriteByte(f.colon())
 			buf.WriteString(f.prettyWithFlags(v[i+1], 0, depth+1))
 		}
 		if flags&flagRawStruct == 0 {
@@ -546,7 +545,7 @@ func (f Formatter) prettyWithFlags(value any, flags uint32, depth int) string {
 			buf.WriteByte('"')
 			buf.WriteString(name)
 			buf.WriteByte('"')
-			buf.WriteByte(':')
+			buf.WriteByte(f.colon())
 			buf.WriteString(f.prettyWithFlags(v.Field(i).Interface(), 0, depth+1))
 		}
 		if flags&flagRawStruct == 0 {
@@ -607,7 +606,7 @@ func (f Formatter) prettyWithFlags(value any, flags uint32, depth int) string {
 				}
 			}
 			buf.WriteString(keystr)
-			buf.WriteByte(':')
+			buf.WriteByte(f.colon())
 			buf.WriteString(f.prettyWithFlags(it.Value().Interface(), 0, depth+1))
 			i++
 		}
@@ -780,11 +779,7 @@ func (f *Formatter) startGroup(group string) {
 			buf.WriteByte(f.comma())
 		}
 		buf.WriteString(f.quoted(f.group, true)) // escape user-provided keys
-		if f.outputFormat == outputJSON {
-			buf.WriteByte(':')
-		} else {
-			buf.WriteByte('=')
-		}
+		buf.WriteByte(f.colon())
 		buf.WriteByte('{') // for the group
 		continuing = false
 	}
