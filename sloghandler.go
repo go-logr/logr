@@ -130,7 +130,7 @@ func (l *slogHandler) WithGroup(name string) slog.Handler {
 	copy := *l
 	if l.slogSink != nil {
 		copy.slogSink = l.slogSink.WithGroup(name)
-		copy.sink = l.slogSink
+		copy.sink = copy.slogSink
 	} else {
 		copy.groupPrefix = copy.addGroupPrefix(name)
 	}
