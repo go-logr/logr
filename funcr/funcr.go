@@ -100,6 +100,10 @@ type Options struct {
 	// details, see docs for Go's time.Layout.
 	TimestampFormat string
 
+	// LogInfoLevel tells func what key to use to log the integer level. By default,
+	// a "level" key will be used. If set it to "", the integer level will not be logged.
+	LogInfoLevel *string
+
 	// Verbosity tells funcr which V logs to produce.  Higher values enable
 	// more logs.  Info logs at or below this level will be written, while logs
 	// above this level will be discarded.
@@ -740,7 +744,16 @@ func (f Formatter) FormatInfo(level int, msg string, kvList []any) (prefix, args
 	if policy := f.opts.LogCaller; policy == All || policy == Info {
 		args = append(args, "caller", f.caller())
 	}
-	args = append(args, "level", level, "msg", msg)
+	if f.opts.LogInfoLevel == nil {
+		args = append(args, "level", level, "msg", msg)
+	} else {
+		lvKey := *f.opts.LogInfoLevel
+		if lvKey != "" {
+			args = append(args, lvKey, level, "msg", msg)
+		} else {
+			args = append(args, "msg", msg)
+		}
+	}
 	return prefix, f.render(args, kvList)
 }
 
