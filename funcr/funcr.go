@@ -268,11 +268,7 @@ func (f Formatter) render(builtins, args []any) string {
 
 	if f.parentValuesStr != "" {
 		if continuing {
-			if f.outputFormat == outputJSON {
-				buf.WriteByte(',')
-			} else {
-				buf.WriteByte(' ')
-			}
+			buf.WriteByte(f.comma())
 		}
 		buf.WriteString(f.parentValuesStr)
 		continuing = true
@@ -282,11 +278,7 @@ func (f Formatter) render(builtins, args []any) string {
 	if f.group != "" {
 		if f.valuesStr != "" || len(args) != 0 {
 			if continuing {
-				if f.outputFormat == outputJSON {
-					buf.WriteByte(',')
-				} else {
-					buf.WriteByte(' ')
-				}
+				buf.WriteByte(f.comma())
 			}
 			buf.WriteString(f.quoted(f.group, true)) // escape user-provided keys
 			if f.outputFormat == outputJSON {
@@ -304,11 +296,7 @@ func (f Formatter) render(builtins, args []any) string {
 
 	if f.valuesStr != "" {
 		if continuing {
-			if f.outputFormat == outputJSON {
-				buf.WriteByte(',')
-			} else {
-				buf.WriteByte(' ')
-			}
+			buf.WriteByte(f.comma())
 		}
 		buf.WriteString(f.valuesStr)
 		continuing = true
@@ -346,9 +334,16 @@ func (f Formatter) flatten(buf *bytes.Buffer, kvList []any, continuing bool, esc
 	if len(kvList)%2 != 0 {
 		kvList = append(kvList, noValue)
 	}
+	copied := false
 	for i := 0; i < len(kvList); i += 2 {
 		k, ok := kvList[i].(string)
 		if !ok {
+			if !copied {
+				newList := make([]any, len(kvList))
+				copy(newList, kvList)
+				kvList = newList
+				copied = true
+			}
 			k = f.nonStringKey(kvList[i])
 			kvList[i] = k
 		}
@@ -356,7 +351,7 @@ func (f Formatter) flatten(buf *bytes.Buffer, kvList []any, continuing bool, esc
 
 		if i > 0 || continuing {
 			if f.outputFormat == outputJSON {
-				buf.WriteByte(',')
+				buf.WriteByte(f.comma())
 			} else {
 				// In theory the format could be something we don't understand.  In
 				// practice, we control it, so it won't be.
@@ -381,6 +376,13 @@ func (f Formatter) quoted(str string, escape bool) string {
 	}
 	// this is faster
 	return `"` + str + `"`
+}
+
+func (f Formatter) comma() byte {
+	if f.outputFormat == outputJSON {
+		return ','
+	}
+	return ' '
 }
 
 func (f Formatter) pretty(value any) string {
@@ -456,7 +458,7 @@ func (f Formatter) prettyWithFlags(value any, flags uint32, depth int) string {
 		}
 		for i := 0; i < len(v); i += 2 {
 			if i > 0 {
-				buf.WriteByte(',')
+				buf.WriteByte(f.comma())
 			}
 			k, _ := v[i].(string) // sanitize() above means no need to check success
 			// arbitrary keys might need escaping
@@ -530,7 +532,7 @@ func (f Formatter) prettyWithFlags(value any, flags uint32, depth int) string {
 				continue
 			}
 			if printComma {
-				buf.WriteByte(',')
+				buf.WriteByte(f.comma())
 			}
 			printComma = true // if we got here, we are rendering a field
 			if fld.Anonymous && fld.Type.Kind() == reflect.Struct && name == "" {
@@ -569,7 +571,7 @@ func (f Formatter) prettyWithFlags(value any, flags uint32, depth int) string {
 		buf.WriteByte('[')
 		for i := 0; i < v.Len(); i++ {
 			if i > 0 {
-				buf.WriteByte(',')
+				buf.WriteByte(f.comma())
 			}
 			e := v.Index(i)
 			buf.WriteString(f.prettyWithFlags(e.Interface(), 0, depth+1))
@@ -583,7 +585,7 @@ func (f Formatter) prettyWithFlags(value any, flags uint32, depth int) string {
 		i := 0
 		for it.Next() {
 			if i > 0 {
-				buf.WriteByte(',')
+				buf.WriteByte(f.comma())
 			}
 			// If a map key supports TextMarshaler, use it.
 			keystr := ""
@@ -775,7 +777,7 @@ func (f *Formatter) startGroup(group string) {
 
 	if f.group != "" && f.valuesStr != "" {
 		if continuing {
-			buf.WriteByte(',')
+			buf.WriteByte(f.comma())
 		}
 		buf.WriteString(f.quoted(f.group, true)) // escape user-provided keys
 		if f.outputFormat == outputJSON {
@@ -789,7 +791,7 @@ func (f *Formatter) startGroup(group string) {
 
 	if f.valuesStr != "" {
 		if continuing {
-			buf.WriteByte(',')
+			buf.WriteByte(f.comma())
 		}
 		buf.WriteString(f.valuesStr)
 	}
