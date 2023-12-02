@@ -52,7 +52,7 @@ func (l *slogHandler) GetLevel() slog.Level {
 	return l.levelBias
 }
 
-func (l *slogHandler) Enabled(ctx context.Context, level slog.Level) bool {
+func (l *slogHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return l.sink != nil && (level >= slog.LevelError || l.sink.Enabled(l.levelFromSlog(level)))
 }
 
@@ -107,10 +107,10 @@ func (l *slogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		return l
 	}
 
-	copy := *l
+	clone := *l
 	if l.slogSink != nil {
-		copy.slogSink = l.slogSink.WithAttrs(attrs)
-		copy.sink = copy.slogSink
+		clone.slogSink = l.slogSink.WithAttrs(attrs)
+		clone.sink = clone.slogSink
 	} else {
 		kvList := make([]any, 0, 2*len(attrs))
 		for _, attr := range attrs {
@@ -118,9 +118,9 @@ func (l *slogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 				kvList = append(kvList, l.addGroupPrefix(attr.Key), attr.Value.Resolve().Any())
 			}
 		}
-		copy.sink = l.sink.WithValues(kvList...)
+		clone.sink = l.sink.WithValues(kvList...)
 	}
-	return &copy
+	return &clone
 }
 
 func (l *slogHandler) WithGroup(name string) slog.Handler {
@@ -131,14 +131,14 @@ func (l *slogHandler) WithGroup(name string) slog.Handler {
 		// slog says to inline empty groups
 		return l
 	}
-	copy := *l
+	clone := *l
 	if l.slogSink != nil {
-		copy.slogSink = l.slogSink.WithGroup(name)
-		copy.sink = copy.slogSink
+		clone.slogSink = l.slogSink.WithGroup(name)
+		clone.sink = clone.slogSink
 	} else {
-		copy.groupPrefix = copy.addGroupPrefix(name)
+		clone.groupPrefix = clone.addGroupPrefix(name)
 	}
-	return &copy
+	return &clone
 }
 
 func (l *slogHandler) addGroupPrefix(name string) string {

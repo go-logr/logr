@@ -190,7 +190,8 @@ func containsOne(hay string, needles ...string) bool {
 	return false
 }
 
-func TestDiscard(t *testing.T) {
+func TestDiscard(_ *testing.T) {
+	// Compile-test
 	logger := slog.New(logr.ToSlogHandler(logr.Discard()))
 	logger.WithGroup("foo").With("x", 1).Info("hello")
 }
