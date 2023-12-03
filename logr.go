@@ -207,6 +207,11 @@ limitations under the License.
 // those.
 package logr
 
+const (
+	// LevelDebug corresponds to slog.LevelDebug.
+	LevelDebug = 4
+)
+
 // New returns a new Logger instance.  This is primarily used by libraries
 // implementing LogSink, rather than end users.  Passing a nil sink will create
 // a Logger which discards all log lines.
@@ -278,6 +283,22 @@ func (l Logger) Info(msg string, keysAndValues ...any) {
 			withHelper.GetCallStackHelper()()
 		}
 		l.sink.Info(l.level, msg, keysAndValues...)
+	}
+}
+
+// Debug is a convenience function. It's equivalent to
+//
+//	V(LevelDebug).Info
+func (l Logger) Debug(msg string, keysAndValues ...any) {
+	if l.sink == nil {
+		return
+	}
+	level := l.level + LevelDebug
+	if l.sink.Enabled(level) { // see comment in Enabled
+		if withHelper, ok := l.sink.(CallStackHelperLogSink); ok {
+			withHelper.GetCallStackHelper()()
+		}
+		l.sink.Info(level, msg, keysAndValues...)
 	}
 }
 

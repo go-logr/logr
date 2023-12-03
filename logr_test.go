@@ -233,7 +233,7 @@ func TestInfo(t *testing.T) {
 	sink := &testLogSink{}
 	sink.fnEnabled = func(lvl int) bool {
 		calledEnabled++
-		return lvl < 100
+		return lvl < 4
 	}
 	sink.fnInfo = func(lvl int, msg string, kv ...any) {
 		calledInfo++
@@ -273,8 +273,8 @@ func TestInfo(t *testing.T) {
 
 	calledEnabled = 0
 	calledInfo = 0
-	lvlInput = 93
-	logger.V(93).Info(msgInput, kvInput...)
+	lvlInput = 3
+	logger.V(3).Info(msgInput, kvInput...)
 	if calledEnabled != 1 {
 		t.Errorf("expected sink.Enabled() to be called once, got %d", calledEnabled)
 	}
@@ -284,8 +284,30 @@ func TestInfo(t *testing.T) {
 
 	calledEnabled = 0
 	calledInfo = 0
-	lvlInput = 100
-	logger.V(100).Info(msgInput, kvInput...)
+	lvlInput = 4
+	logger.V(4).Info(msgInput, kvInput...)
+	if calledEnabled != 1 {
+		t.Errorf("expected sink.Enabled() to be called once, got %d", calledEnabled)
+	}
+	if calledInfo != 0 {
+		t.Errorf("expected sink.Info() to not be called, got %d", calledInfo)
+	}
+
+	calledEnabled = 0
+	calledInfo = 0
+	lvlInput = 4
+	logger.V(4).Info(msgInput, kvInput...)
+	if calledEnabled != 1 {
+		t.Errorf("expected sink.Enabled() to be called once, got %d", calledEnabled)
+	}
+	if calledInfo != 0 {
+		t.Errorf("expected sink.Info() to not be called, got %d", calledInfo)
+	}
+
+	calledEnabled = 0
+	calledInfo = 0
+	lvlInput = 4
+	logger.Debug(msgInput, kvInput...)
 	if calledEnabled != 1 {
 		t.Errorf("expected sink.Enabled() to be called once, got %d", calledEnabled)
 	}
@@ -497,6 +519,7 @@ func TestCallDepthConsistent(t *testing.T) {
 	l := New(sink)
 
 	l.Enabled()
+	l.Debug("msg")
 	l.Info("msg")
 	l.Error(nil, "msg")
 }
