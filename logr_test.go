@@ -33,6 +33,13 @@ type testLogSink struct {
 	fnError      func(err error, msg string, kv ...any)
 	fnWithValues func(kv ...any)
 	fnWithName   func(name string)
+
+	withValues []any
+
+	// testSlogSink contains some additional fields if (and only if) slog is supported by Go.
+	// See logr_slog_test.go.
+	//nolint:unused // Only unused with Go < 1.21.
+	testSlogSink
 }
 
 var _ LogSink = &testLogSink{}
@@ -67,6 +74,8 @@ func (l *testLogSink) WithValues(kv ...any) LogSink {
 		l.fnWithValues(kv...)
 	}
 	out := *l
+	n := len(out.withValues)
+	out.withValues = append(out.withValues[:n:n], kv...)
 	return &out
 }
 
