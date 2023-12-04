@@ -141,6 +141,10 @@ func doMarshalerValue(b *testing.B, log logr.Logger) {
 	}
 }
 
+//
+// discard
+//
+
 func BenchmarkDiscardLogInfoOneArg(b *testing.B) {
 	var log logr.Logger = logr.Discard()
 	doInfoOneArg(b, log)
@@ -180,6 +184,10 @@ func BenchmarkDiscardWithName(b *testing.B) {
 	var log logr.Logger = logr.Discard()
 	doWithName(b, log)
 }
+
+//
+// funcr
+//
 
 func noopKV(_, _ string) {}
 func noopJSON(_ string)  {}
