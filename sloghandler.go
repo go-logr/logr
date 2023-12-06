@@ -70,9 +70,7 @@ func (l *slogHandler) Handle(ctx context.Context, record slog.Record) error {
 
 	kvList := make([]any, 0, 2*record.NumAttrs())
 	record.Attrs(func(attr slog.Attr) bool {
-		if attr.Key != "" {
-			kvList = append(kvList, l.addGroupPrefix(attr.Key), attr.Value.Resolve().Any())
-		}
+		kvList = attrToKVs(attr, l.groupPrefix, kvList)
 		return true
 	})
 	if record.Level >= slog.LevelError {
@@ -114,9 +112,7 @@ func (l *slogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	} else {
 		kvList := make([]any, 0, 2*len(attrs))
 		for _, attr := range attrs {
-			if attr.Key != "" {
-				kvList = append(kvList, l.addGroupPrefix(attr.Key), attr.Value.Resolve().Any())
-			}
+			kvList = attrToKVs(attr, l.groupPrefix, kvList)
 		}
 		clone.sink = l.sink.WithValues(kvList...)
 	}
@@ -136,16 +132,41 @@ func (l *slogHandler) WithGroup(name string) slog.Handler {
 		clone.slogSink = l.slogSink.WithGroup(name)
 		clone.sink = clone.slogSink
 	} else {
-		clone.groupPrefix = clone.addGroupPrefix(name)
+		clone.groupPrefix = addPrefix(clone.groupPrefix, name)
 	}
 	return &clone
 }
 
-func (l *slogHandler) addGroupPrefix(name string) string {
-	if l.groupPrefix == "" {
+// attrToKVs appends a slog.Attr to a logr-style kvList.  It handle slog Groups
+// and other details of slog.
+func attrToKVs(attr slog.Attr, groupPrefix string, kvList []any) []any {
+	attrVal := attr.Value.Resolve()
+	if attrVal.Kind() == slog.KindGroup {
+		groupVal := attrVal.Group()
+		grpKVs := make([]any, 0, 2*len(groupVal))
+		prefix := groupPrefix
+		if attr.Key != "" {
+			prefix = addPrefix(groupPrefix, attr.Key)
+		}
+		for _, attr := range groupVal {
+			grpKVs = attrToKVs(attr, prefix, grpKVs)
+		}
+		kvList = append(kvList, grpKVs...)
+	} else if attr.Key != "" {
+		kvList = append(kvList, addPrefix(groupPrefix, attr.Key), attrVal.Any())
+	}
+
+	return kvList
+}
+
+func addPrefix(prefix, name string) string {
+	if prefix == "" {
 		return name
 	}
-	return l.groupPrefix + groupSeparator + name
+	if name == "" {
+		return prefix
+	}
+	return prefix + groupSeparator + name
 }
 
 // levelFromSlog adjusts the level by the logger's verbosity and negates it.

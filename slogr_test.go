@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"path"
 	"runtime"
 	"strings"
@@ -31,6 +32,58 @@ import (
 
 	"github.com/go-logr/logr/internal/testhelp"
 )
+
+func TestToSlogHandler(t *testing.T) {
+	t.Run("from simple Logger", func(t *testing.T) {
+		logger := New(&testLogSink{})
+		handler := ToSlogHandler(logger)
+		if _, ok := handler.(*slogHandler); !ok {
+			t.Errorf("expected type *slogHandler, got %T", handler)
+		}
+	})
+
+	t.Run("from slog-enabled Logger", func(t *testing.T) {
+		logger := New(&testSlogSink{})
+		handler := ToSlogHandler(logger)
+		if _, ok := handler.(*slogHandler); !ok {
+			t.Errorf("expected type *slogHandler, got %T", handler)
+		}
+	})
+
+	t.Run("from slogSink Logger", func(t *testing.T) {
+		logger := New(&slogSink{handler: slog.NewJSONHandler(os.Stderr, nil)})
+		handler := ToSlogHandler(logger)
+		if _, ok := handler.(*slog.JSONHandler); !ok {
+			t.Errorf("expected type *slog.JSONHandler, got %T", handler)
+		}
+	})
+}
+
+func TestFromSlogHandler(t *testing.T) {
+	t.Run("from slog Handler", func(t *testing.T) {
+		handler := slog.NewJSONHandler(os.Stderr, nil)
+		logger := FromSlogHandler(handler)
+		if _, ok := logger.sink.(*slogSink); !ok {
+			t.Errorf("expected type *slogSink, got %T", logger.sink)
+		}
+	})
+
+	t.Run("from simple slogHandler Handler", func(t *testing.T) {
+		handler := &slogHandler{sink: &testLogSink{}}
+		logger := FromSlogHandler(handler)
+		if _, ok := logger.sink.(*testLogSink); !ok {
+			t.Errorf("expected type *testSlogSink, got %T", logger.sink)
+		}
+	})
+
+	t.Run("from discard slogHandler Handler", func(t *testing.T) {
+		handler := &slogHandler{}
+		logger := FromSlogHandler(handler)
+		if logger != Discard() {
+			t.Errorf("expected type *testSlogSink, got %T", logger.sink)
+		}
+	})
+}
 
 var debugWithoutTime = &slog.HandlerOptions{
 	ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
@@ -61,13 +114,45 @@ func TestWithCallDepth(t *testing.T) {
 	}
 }
 
-func TestRunSlogTestsOnSlogSink(t *testing.T) {
-	// This proves that slogSink passes slog's own tests.
+func TestRunSlogTestsOnSlogHandlerLogSink(t *testing.T) {
+	// This proves that slogHandler passes slog's own tests when given a
+	// non-SlogSink LogSink.
+	exceptions := []string{
+		// logr sinks handle time themselves
+		"a Handler should ignore a zero Record.Time",
+		// slogHandler does not do groups "properly", so these all fail with
+		// "missing group".  It's looking for `"G":{"a":"b"}` and getting
+		// `"G.a": "b"`.
+		"a Handler should handle Group attributes",
+		"a Handler should handle the WithGroup method",
+		"a Handler should handle multiple WithGroup and WithAttr calls",
+		"a Handler should not output groups for an empty Record",
+		"a Handler should call Resolve on attribute values in groups",
+		"a Handler should call Resolve on attribute values in groups from WithAttrs",
+	}
 	testhelp.RunSlogTests(t, func(buffer *bytes.Buffer) slog.Handler {
+		// We want a known-good Logger that emits JSON but is not a slogHandler
+		// or SlogSink (since those get special treatment).  We can trust that
+		// the slog JSONHandler works.
 		handler := slog.NewJSONHandler(buffer, nil)
-		logger := FromSlogHandler(handler)
+		sink := &passthruLogSink{handler: handler}
+		logger := New(sink)
 		return ToSlogHandler(logger)
-	})
+	}, exceptions...)
+}
+
+func TestRunSlogTestsOnSlogHandlerSlogSink(t *testing.T) {
+	// This proves that slogHandler passes slog's own tests when given a
+	// SlogSink.
+	exceptions := []string{}
+	testhelp.RunSlogTests(t, func(buffer *bytes.Buffer) slog.Handler {
+		// We want a known-good Logger that emits JSON and implements SlogSink,
+		// to cover those paths.  We can trust that the slog JSONHandler works.
+		handler := slog.NewJSONHandler(buffer, nil)
+		sink := &passthruSlogSink{handler: handler}
+		logger := New(sink)
+		return ToSlogHandler(logger)
+	}, exceptions...)
 }
 
 func TestSlogSinkOnDiscard(_ *testing.T) {
