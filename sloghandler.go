@@ -127,6 +127,10 @@ func (l *slogHandler) WithGroup(name string) slog.Handler {
 	if l.sink == nil {
 		return l
 	}
+	if name == "" {
+		// slog says to inline empty groups
+		return l
+	}
 	copy := *l
 	if l.slogSink != nil {
 		copy.slogSink = l.slogSink.WithGroup(name)
