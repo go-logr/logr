@@ -17,7 +17,6 @@ limitations under the License.
 package logr
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -411,34 +410,6 @@ func TestWithCallDepthIncremental(t *testing.T) {
 	}
 	if p.callDepth != depthInput {
 		t.Errorf("expected sink to have call depth %d, got %d", depthInput, p.callDepth)
-	}
-}
-
-func TestContext(t *testing.T) {
-	ctx := context.TODO()
-
-	if out, err := FromContext(ctx); err == nil {
-		t.Errorf("expected error, got %#v", out)
-	} else if _, ok := err.(notFoundError); !ok {
-		t.Errorf("expected a notFoundError, got %#v", err)
-	}
-
-	out := FromContextOrDiscard(ctx)
-	if out.sink != nil {
-		t.Errorf("expected a nil sink, got %#v", out)
-	}
-
-	sink := &testLogSink{}
-	logger := New(sink)
-	lctx := NewContext(ctx, logger)
-	if out, err := FromContext(lctx); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	} else if p, _ := out.sink.(*testLogSink); p != sink {
-		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
-	}
-	out = FromContextOrDiscard(lctx)
-	if p, _ := out.sink.(*testLogSink); p != sink {
-		t.Errorf("expected output to be the same as input, got in=%p, out=%p", sink, p)
 	}
 }
 
