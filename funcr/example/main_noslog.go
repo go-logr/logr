@@ -17,7 +17,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package logr
+// Package main is an example of using funcr.
+package main
 
-//nolint:unused
-type testSlogSink struct{}
+import (
+	"github.com/go-logr/logr"
+)
+
+func doSlog(log logr.Logger) {
+	log.Error(nil, "Sorry, slog is not supported on this version of Go")
+}

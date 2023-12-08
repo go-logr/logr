@@ -17,13 +17,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package logr_test
+package logr
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -32,11 +29,61 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"testing/slogtest"
 
-	"github.com/go-logr/logr"
-	"github.com/go-logr/logr/funcr"
+	"github.com/go-logr/logr/internal/testhelp"
 )
+
+func TestToSlogHandler(t *testing.T) {
+	t.Run("from simple Logger", func(t *testing.T) {
+		logger := New(&testLogSink{})
+		handler := ToSlogHandler(logger)
+		if _, ok := handler.(*slogHandler); !ok {
+			t.Errorf("expected type *slogHandler, got %T", handler)
+		}
+	})
+
+	t.Run("from slog-enabled Logger", func(t *testing.T) {
+		logger := New(&testSlogSink{})
+		handler := ToSlogHandler(logger)
+		if _, ok := handler.(*slogHandler); !ok {
+			t.Errorf("expected type *slogHandler, got %T", handler)
+		}
+	})
+
+	t.Run("from slogSink Logger", func(t *testing.T) {
+		logger := New(&slogSink{handler: slog.NewJSONHandler(os.Stderr, nil)})
+		handler := ToSlogHandler(logger)
+		if _, ok := handler.(*slog.JSONHandler); !ok {
+			t.Errorf("expected type *slog.JSONHandler, got %T", handler)
+		}
+	})
+}
+
+func TestFromSlogHandler(t *testing.T) {
+	t.Run("from slog Handler", func(t *testing.T) {
+		handler := slog.NewJSONHandler(os.Stderr, nil)
+		logger := FromSlogHandler(handler)
+		if _, ok := logger.sink.(*slogSink); !ok {
+			t.Errorf("expected type *slogSink, got %T", logger.sink)
+		}
+	})
+
+	t.Run("from simple slogHandler Handler", func(t *testing.T) {
+		handler := &slogHandler{sink: &testLogSink{}}
+		logger := FromSlogHandler(handler)
+		if _, ok := logger.sink.(*testLogSink); !ok {
+			t.Errorf("expected type *testSlogSink, got %T", logger.sink)
+		}
+	})
+
+	t.Run("from discard slogHandler Handler", func(t *testing.T) {
+		handler := &slogHandler{}
+		logger := FromSlogHandler(handler)
+		if logger != Discard() {
+			t.Errorf("expected type *testSlogSink, got %T", logger.sink)
+		}
+	})
+}
 
 var debugWithoutTime = &slog.HandlerOptions{
 	ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
@@ -48,50 +95,15 @@ var debugWithoutTime = &slog.HandlerOptions{
 	Level: slog.LevelDebug,
 }
 
-func ExampleFromSlogHandler() {
-	logrLogger := logr.FromSlogHandler(slog.NewTextHandler(os.Stdout, debugWithoutTime))
-
-	logrLogger.Info("hello world")
-	logrLogger.Error(errors.New("fake error"), "ignore me")
-	logrLogger.WithValues("x", 1, "y", 2).WithValues("str", "abc").WithName("foo").WithName("bar").V(4).Info("with values, verbosity and name")
-
-	// Output:
-	// level=INFO msg="hello world"
-	// level=ERROR msg="ignore me" err="fake error"
-	// level=DEBUG msg="with values, verbosity and name" x=1 y=2 str=abc logger=foo/bar
-}
-
-func ExampleToSlogHandler() {
-	funcrLogger := funcr.New(func(prefix, args string) {
-		if prefix != "" {
-			fmt.Fprintln(os.Stdout, prefix, args)
-		} else {
-			fmt.Fprintln(os.Stdout, args)
-		}
-	}, funcr.Options{
-		Verbosity: 10,
-	})
-
-	slogLogger := slog.New(logr.ToSlogHandler(funcrLogger))
-	slogLogger.Info("hello world")
-	slogLogger.Error("ignore me", "err", errors.New("fake error"))
-	slogLogger.With("x", 1, "y", 2).WithGroup("group").With("str", "abc").Warn("with values and group")
-
-	slogLogger = slog.New(logr.ToSlogHandler(funcrLogger.V(int(-slog.LevelDebug))))
-	slogLogger.Info("info message reduced to debug level")
-
-	// Output:
-	// "level"=0 "msg"="hello world"
-	// "msg"="ignore me" "error"=null "err"="fake error"
-	// "level"=0 "msg"="with values and group" "x"=1 "y"=2 "group.str"="abc"
-	// "level"=4 "msg"="info message reduced to debug level"
-}
-
 func TestWithCallDepth(t *testing.T) {
 	debugWithCaller := *debugWithoutTime
 	debugWithCaller.AddSource = true
 	var buffer bytes.Buffer
-	logger := logr.FromSlogHandler(slog.NewTextHandler(&buffer, &debugWithCaller))
+	logger := FromSlogHandler(slog.NewTextHandler(&buffer, &debugWithCaller))
+
+	logHelper := func(logger Logger) {
+		logger.WithCallDepth(1).Info("hello")
+	}
 
 	logHelper(logger)
 	_, file, line, _ := runtime.Caller(0)
@@ -102,148 +114,67 @@ func TestWithCallDepth(t *testing.T) {
 	}
 }
 
-func logHelper(logger logr.Logger) {
-	logger.WithCallDepth(1).Info("hello")
-}
-
-func TestJSONHandler(t *testing.T) {
-	testSlog(t, func(buffer *bytes.Buffer) logr.Logger {
+func TestRunSlogTestsOnSlogHandlerLogSink(t *testing.T) {
+	// This proves that slogHandler passes slog's own tests when given a
+	// non-SlogSink LogSink.
+	exceptions := []string{
+		// logr sinks handle time themselves
+		"a Handler should ignore a zero Record.Time",
+		// slogHandler does not do groups "properly", so these all fail with
+		// "missing group".  It's looking for `"G":{"a":"b"}` and getting
+		// `"G.a": "b"`.
+		"a Handler should handle Group attributes",
+		"a Handler should handle the WithGroup method",
+		"a Handler should handle multiple WithGroup and WithAttr calls",
+		"a Handler should not output groups for an empty Record",
+		"a Handler should call Resolve on attribute values in groups",
+		"a Handler should call Resolve on attribute values in groups from WithAttrs",
+	}
+	testhelp.RunSlogTests(t, func(buffer *bytes.Buffer) slog.Handler {
+		// We want a known-good Logger that emits JSON but is not a slogHandler
+		// or SlogSink (since those get special treatment).  We can trust that
+		// the slog JSONHandler works.
 		handler := slog.NewJSONHandler(buffer, nil)
-		sink := testSlogSink{handler: handler}
-		return logr.New(sink)
-	})
+		sink := &passthruLogSink{handler: handler}
+		logger := New(sink)
+		return ToSlogHandler(logger)
+	}, exceptions...)
 }
 
-var _ logr.LogSink = testSlogSink{}
-var _ logr.SlogSink = testSlogSink{}
-
-// testSlogSink is only used through slog and thus doesn't need to implement the
-// normal LogSink methods.
-type testSlogSink struct {
-	handler slog.Handler
+func TestRunSlogTestsOnSlogHandlerSlogSink(t *testing.T) {
+	// This proves that slogHandler passes slog's own tests when given a
+	// SlogSink.
+	exceptions := []string{}
+	testhelp.RunSlogTests(t, func(buffer *bytes.Buffer) slog.Handler {
+		// We want a known-good Logger that emits JSON and implements SlogSink,
+		// to cover those paths.  We can trust that the slog JSONHandler works.
+		handler := slog.NewJSONHandler(buffer, nil)
+		sink := &passthruSlogSink{handler: handler}
+		logger := New(sink)
+		return ToSlogHandler(logger)
+	}, exceptions...)
 }
 
-func (s testSlogSink) Init(logr.RuntimeInfo)                  {}
-func (s testSlogSink) Enabled(int) bool                       { return true }
-func (s testSlogSink) Error(error, string, ...interface{})    {}
-func (s testSlogSink) Info(int, string, ...interface{})       {}
-func (s testSlogSink) WithName(string) logr.LogSink           { return s }
-func (s testSlogSink) WithValues(...interface{}) logr.LogSink { return s }
-
-func (s testSlogSink) Handle(ctx context.Context, record slog.Record) error {
-	return s.handler.Handle(ctx, record)
-}
-func (s testSlogSink) WithAttrs(attrs []slog.Attr) logr.SlogSink {
-	return testSlogSink{handler: s.handler.WithAttrs(attrs)}
-}
-func (s testSlogSink) WithGroup(name string) logr.SlogSink {
-	return testSlogSink{handler: s.handler.WithGroup(name)}
-}
-
-func TestFuncrHandler(t *testing.T) {
-	testSlog(t, func(buffer *bytes.Buffer) logr.Logger {
-		logger := funcr.NewJSON(func(obj string) {
-			fmt.Fprintln(buffer, obj)
-		}, funcr.Options{
-			LogTimestamp: true,
-			Verbosity:    10,
-			RenderBuiltinsHook: func(kvList []any) []any {
-				mappedKVList := make([]any, len(kvList))
-				for i := 0; i < len(kvList); i += 2 {
-					key := kvList[i]
-					switch key {
-					case "ts":
-						mappedKVList[i] = "time"
-					default:
-						mappedKVList[i] = key
-					}
-					mappedKVList[i+1] = kvList[i+1]
-				}
-				return mappedKVList
-			},
-		})
-		return logger
-	},
-		"a Handler should ignore a zero Record.Time",                     // Time is generated by sink.
-		"a Handler should handle Group attributes",                       // funcr doesn't.
-		"a Handler should inline the Attrs of a group with an empty key", // funcr doesn't know about groups.
-		"a Handler should not output groups for an empty Record",         // Relies on WithGroup. Text may change, see https://go.dev/cl/516155
-		"a Handler should handle the WithGroup method",                   // logHandler does by prefixing keys, which is not what the test expects.
-		"a Handler should handle multiple WithGroup and WithAttr calls",  // Same.
-		"a Handler should call Resolve on attribute values in groups",    // funcr doesn't do that and slogHandler can't do it for it.
-	)
-}
-
-func testSlog(t *testing.T, createLogger func(buffer *bytes.Buffer) logr.Logger, exceptions ...string) {
-	var buffer bytes.Buffer
-	logger := createLogger(&buffer)
-	handler := logr.ToSlogHandler(logger)
-	err := slogtest.TestHandler(handler, func() []map[string]any {
-		var ms []map[string]any
-		for _, line := range bytes.Split(buffer.Bytes(), []byte{'\n'}) {
-			if len(line) == 0 {
-				continue
-			}
-			var m map[string]any
-			if err := json.Unmarshal(line, &m); err != nil {
-				t.Fatal(err)
-			}
-			ms = append(ms, m)
-		}
-		return ms
-	})
-
-	// Correlating failures with individual test cases is hard with the current API.
-	// See https://github.com/golang/go/issues/61758
-	t.Logf("Output:\n%s", buffer.String())
-	if err != nil {
-		if err, ok := err.(interface {
-			Unwrap() []error
-		}); ok {
-			for _, err := range err.Unwrap() {
-				if !containsOne(err.Error(), exceptions...) {
-					t.Errorf("Unexpected error: %v", err)
-				}
-			}
-		} else {
-			// Shouldn't be reached, errors from errors.Join can be split up.
-			t.Errorf("Unexpected errors:\n%v", err)
-		}
-	}
-}
-
-func containsOne(hay string, needles ...string) bool {
-	for _, needle := range needles {
-		if strings.Contains(hay, needle) {
-			return true
-		}
-	}
-	return false
-}
-
-func TestDiscard(t *testing.T) {
-	logger := slog.New(logr.ToSlogHandler(logr.Discard()))
+func TestSlogSinkOnDiscard(_ *testing.T) {
+	// Compile-test
+	logger := slog.New(ToSlogHandler(Discard()))
 	logger.WithGroup("foo").With("x", 1).Info("hello")
 }
 
 func TestConversion(t *testing.T) {
-	d := logr.Discard()
-	d2 := logr.FromSlogHandler(logr.ToSlogHandler(d))
+	d := Discard()
+	d2 := FromSlogHandler(ToSlogHandler(d))
 	expectEqual(t, d, d2)
 
-	e := logr.Logger{}
-	e2 := logr.FromSlogHandler(logr.ToSlogHandler(e))
+	e := Logger{}
+	e2 := FromSlogHandler(ToSlogHandler(e))
 	expectEqual(t, e, e2)
 
-	f := funcr.New(func(prefix, args string) {}, funcr.Options{})
-	f2 := logr.FromSlogHandler(logr.ToSlogHandler(f))
-	expectEqual(t, f, f2)
-
 	text := slog.NewTextHandler(io.Discard, nil)
-	text2 := logr.ToSlogHandler(logr.FromSlogHandler(text))
+	text2 := ToSlogHandler(FromSlogHandler(text))
 	expectEqual(t, text, text2)
 
-	text3 := logr.ToSlogHandler(logr.FromSlogHandler(text).V(1))
+	text3 := ToSlogHandler(FromSlogHandler(text).V(1))
 	if handler, ok := text3.(interface {
 		GetLevel() slog.Level
 	}); ok {

@@ -91,12 +91,12 @@ func (l *slogSink) log(err error, msg string, level slog.Level, kvList ...interf
 		record.AddAttrs(slog.Any(errKey, err))
 	}
 	record.Add(kvList...)
-	l.handler.Handle(context.Background(), record)
+	_ = l.handler.Handle(context.Background(), record)
 }
 
 func (l slogSink) WithName(name string) LogSink {
 	if l.name != "" {
-		l.name = l.name + "/"
+		l.name += "/"
 	}
 	l.name += name
 	return &l

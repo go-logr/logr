@@ -43,5 +43,5 @@ func ExampleMarshaler_secret() {
 	secret := ComplexObjectRef{Namespace: "kube-system", Name: "some-secret", Secret: "do-not-log-me"}
 	l.Info("simplified", "secret", secret)
 	// Output:
-	// "level"=0 "msg"="simplified" "secret"={"Name":"some-secret","Namespace":"kube-system"}
+	// "level"=0 "msg"="simplified" "secret"={"Name"="some-secret" "Namespace"="kube-system"}
 }
