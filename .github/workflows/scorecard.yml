@@ -50,12 +50,12 @@ jobs:
 
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
       # format to the repository Actions tab.
-      - name: "Upload artifact"
-        uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # v4.0.0
-        with:
-          name: SARIF file
-          path: results.sarif
-          retention-days: 5
+      #- name: "Upload artifact"
+      #  uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # v4.0.0
+      #  with:
+      #    name: SARIF file
+      #    path: results.sarif
+      #    retention-days: 5
 
       # Upload the results to GitHub's code scanning dashboard.
       - name: "Upload to code-scanning"
