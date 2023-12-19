@@ -1365,25 +1365,30 @@ func TestOptionsTimestampFormat(t *testing.T) {
 func TestOptionsLogInfoLevel(t *testing.T) {
 	testCases := []struct {
 		name   string
-		level  string
+		level  *string
 		expect string
 	}{
 		{
 			name:   "custom key",
-			level:  "info_level",
+			level:  ptrstr("info_level"),
 			expect: `"info_level"=0 "msg"="msg"`,
 		},
 		{
 			name:   "no level",
-			level:  "",
+			level:  ptrstr(""),
 			expect: `"msg"="msg"`,
+		},
+		{
+			name:   "default",
+			level:  nil,
+			expect: `"level"=0 "msg"="msg"`,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run("Run: "+tc.name, func(t *testing.T) {
 			capt := &capture{}
-			sink := newSink(capt.Func, NewFormatter(Options{LogInfoLevel: &tc.level}))
+			sink := newSink(capt.Func, NewFormatter(Options{LogInfoLevel: tc.level}))
 			dSink, _ := sink.(logr.CallDepthLogSink)
 			sink = dSink.WithCallDepth(1)
 			sink.Info(0, "msg")
