@@ -144,7 +144,7 @@ func TestRunSlogTests(t *testing.T) {
 }
 
 func TestLogrSlogConversion(t *testing.T) {
-	f := New(func(prefix, args string) {}, Options{})
+	f := New(func(_, _ string) {}, Options{})
 	f2 := logr.FromSlogHandler(logr.ToSlogHandler(f))
 	if want, got := f, f2; got != want {
 		t.Helper()
