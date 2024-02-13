@@ -60,7 +60,7 @@ func TestEnabled(t *testing.T) {
 	calledEnabled := 0
 
 	sink := &testLogSink{}
-	sink.fnEnabled = func(lvl int) bool {
+	sink.fnEnabled = func(_ int) bool {
 		calledEnabled++
 		return true
 	}
