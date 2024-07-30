@@ -55,9 +55,9 @@ func ExampleFromSlogHandler() {
 func ExampleToSlogHandler() {
 	funcrLogger := funcr.New(func(prefix, args string) {
 		if prefix != "" {
-			fmt.Fprintln(os.Stdout, prefix, args)
+			fmt.Println(prefix, args)
 		} else {
-			fmt.Fprintln(os.Stdout, args)
+			fmt.Println(args)
 		}
 	}, funcr.Options{
 		Verbosity: 10,
