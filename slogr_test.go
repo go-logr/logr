@@ -126,6 +126,7 @@ func TestRunSlogTestsOnSlogHandlerLogSink(t *testing.T) {
 		"a Handler should handle Group attributes",
 		"a Handler should handle the WithGroup method",
 		"a Handler should handle multiple WithGroup and WithAttr calls",
+		"a Handler should not output groups for an empty Record",
 		"a Handler should not output groups if there are no attributes",
 		"a Handler should not output nested groups if there are no attributes",
 		"a Handler should call Resolve on attribute values in groups",
