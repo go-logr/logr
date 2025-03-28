@@ -114,15 +114,20 @@ func TestWithCallDepth(t *testing.T) {
 	}
 }
 
-func TestRunSlogTestsOnSlogHandlerLogSink(t *testing.T) {
+func TestRunSlogTestsOnNaiveSlogHandler(t *testing.T) {
 	// This proves that slogHandler passes slog's own tests when given a
-	// non-SlogSink LogSink.
+	// LogSink which does not implement SlogSink.
 	exceptions := []string{
 		// logr sinks handle time themselves
 		"a Handler should ignore a zero Record.Time",
 		// slogHandler does not do groups "properly", so these all fail with
 		// "missing group".  It's looking for `"G":{"a":"b"}` and getting
 		// `"G.a": "b"`.
+		//
+		// NOTE: These make a weird coupling to Go versions. Newer Go versions
+		// don't need some of these exceptions, but older ones do. It's unclear
+		// if that is because something changed in slog or if the test was
+		// removed.
 		"a Handler should handle Group attributes",
 		"a Handler should handle the WithGroup method",
 		"a Handler should handle multiple WithGroup and WithAttr calls",
@@ -137,21 +142,21 @@ func TestRunSlogTestsOnSlogHandlerLogSink(t *testing.T) {
 		// or SlogSink (since those get special treatment).  We can trust that
 		// the slog JSONHandler works.
 		handler := slog.NewJSONHandler(buffer, nil)
-		sink := &passthruLogSink{handler: handler}
+		sink := &passthruLogSink{handler: handler} // passthruLogSink does not implement SlogSink.
 		logger := New(sink)
 		return ToSlogHandler(logger)
 	}, exceptions...)
 }
 
-func TestRunSlogTestsOnSlogHandlerSlogSink(t *testing.T) {
+func TestRunSlogTestsOnEnlightenedSlogHandler(t *testing.T) {
 	// This proves that slogHandler passes slog's own tests when given a
-	// SlogSink.
+	// LogSink which implements SlogSink.
 	exceptions := []string{}
 	testhelp.RunSlogTests(t, func(buffer *bytes.Buffer) slog.Handler {
 		// We want a known-good Logger that emits JSON and implements SlogSink,
 		// to cover those paths.  We can trust that the slog JSONHandler works.
 		handler := slog.NewJSONHandler(buffer, nil)
-		sink := &passthruSlogSink{handler: handler}
+		sink := &passthruSlogSink{handler: handler} // passthruSlogSink implements SlogSink.
 		logger := New(sink)
 		return ToSlogHandler(logger)
 	}, exceptions...)
