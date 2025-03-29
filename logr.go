@@ -309,11 +309,21 @@ func (l Logger) V(level int) Logger {
 	if l.sink == nil {
 		return l
 	}
-	if level < 0 {
-		level = 0
+
+	switch l.sink.(type) {
+	case *slogSink:
+		l.level += level
+
+		return l
+	default:
+		if level < 0 {
+			level = 0
+		}
+
+		l.level += level
+
+		return l
 	}
-	l.level += level
-	return l
 }
 
 // GetV returns the verbosity level of the logger. If the logger's LogSink is
