@@ -530,3 +530,6 @@ type Marshaler interface {
 type ErrorDetailer interface {
 	ErrorDetails() any
 }
+
+// PseudoStruct is a list of key-value pairs that gets logged as a struct.
+type PseudoStruct []any
