@@ -518,3 +518,18 @@ type Marshaler interface {
 	// It may return any value of any type.
 	MarshalLog() any
 }
+
+// ErrorDetailer provides additional information about an error.
+// When an error value implements this additional interface,
+// the result of ErrorDetails may be logged in a separate key/value
+// pair. The result of Error is meant to be logged as usual.
+//
+// Logging backends not supporting this interface will
+// ignore the additional details, so all the important information
+// should be in the error string.
+type ErrorDetailer interface {
+	ErrorDetails() any
+}
+
+// PseudoStruct is a list of key-value pairs that gets logged as a struct.
+type PseudoStruct []any
