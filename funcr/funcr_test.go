@@ -109,18 +109,26 @@ type TjsontagsString struct {
 	String0 string `json:"-"`                 // first field ignored
 	String1 string `json:"string1"`           // renamed
 	String2 string `json:"-"`                 // ignored
+	// "'_'" is what staticcheck suggests:
+	// should encoding/json ignore this field or name it "-"? Either use `json:"-"` to ignore the field or use `json:"'-',"` to specify "-" as the name
+	// However, json.Marshal then uses "String3" as name, so this is a wrong suggestion?!
+	//
+	//nolint:staticcheck
 	String3 string `json:"-,"`                // named "-"
 	String4 string `json:"string4,omitempty"` // renamed, ignore if empty
+	//nolint:staticcheck // SA5008: malformed `json` tag: invalid trailing ',' character
 	String5 string `json:","`                 // no-op
 	String6 string `json:",omitempty"`        // ignore if empty
 }
 
 type TjsontagsBool struct {
-	Bool0 bool `json:"-"`               // first field ignored
-	Bool1 bool `json:"bool1"`           // renamed
-	Bool2 bool `json:"-"`               // ignored
+	Bool0 bool `json:"-"`     // first field ignored
+	Bool1 bool `json:"bool1"` // renamed
+	Bool2 bool `json:"-"`     // ignored
+	//nolint:staticcheck  // SA5008: should encoding/json ignore this field or name it "-"? Either use `json:"-"` to ignore the field or use `json:"'-',"` to specify "-" as the name
 	Bool3 bool `json:"-,"`              // named "-"
 	Bool4 bool `json:"bool4,omitempty"` // renamed, ignore if empty
+	//nolint:staticcheck // SA5008: malformed `json` tag: invalid trailing ',' character
 	Bool5 bool `json:","`               // no-op
 	Bool6 bool `json:",omitempty"`      // ignore if empty
 }
@@ -129,8 +137,10 @@ type TjsontagsInt struct {
 	Int0 int `json:"-"`              // first field ignored
 	Int1 int `json:"int1"`           // renamed
 	Int2 int `json:"-"`              // ignored
+	//nolint:staticcheck  // SA5008: should encoding/json ignore this field or name it "-"? Either use `json:"-"` to ignore the field or use `json:"'-',"` to specify "-" as the name
 	Int3 int `json:"-,"`             // named "-"
 	Int4 int `json:"int4,omitempty"` // renamed, ignore if empty
+	//nolint:staticcheck // SA5008: malformed `json` tag: invalid trailing ',' character
 	Int5 int `json:","`              // no-op
 	Int6 int `json:",omitempty"`     // ignore if empty
 }
@@ -139,8 +149,10 @@ type TjsontagsUint struct {
 	Uint0 int  `json:"-"`               // first field ignored
 	Uint1 uint `json:"uint1"`           // renamed
 	Uint2 uint `json:"-"`               // ignored
+	//nolint:staticcheck  // SA5008: should encoding/json ignore this field or name it "-"? Either use `json:"-"` to ignore the field or use `json:"'-',"` to specify "-" as the name
 	Uint3 uint `json:"-,"`              // named "-"
 	Uint4 uint `json:"uint4,omitempty"` // renamed, ignore if empty
+	//nolint:staticcheck // SA5008: malformed `json` tag: invalid trailing ',' character
 	Uint5 uint `json:","`               // no-op
 	Uint6 uint `json:",omitempty"`      // ignore if empty
 }
@@ -149,8 +161,10 @@ type TjsontagsFloat struct {
 	Float0 float64 `json:"-"`                // first field ignored
 	Float1 float64 `json:"float1"`           // renamed
 	Float2 float64 `json:"-"`                // ignored
+	//nolint:staticcheck  // SA5008: should encoding/json ignore this field or name it "-"? Either use `json:"-"` to ignore the field or use `json:"'-',"` to specify "-" as the name
 	Float3 float64 `json:"-,"`               // named "-"
 	Float4 float64 `json:"float4,omitempty"` // renamed, ignore if empty
+	//nolint:staticcheck // SA5008: malformed `json` tag: invalid trailing ',' character
 	Float5 float64 `json:","`                // no-op
 	Float6 float64 `json:",omitempty"`       // ignore if empty
 }
@@ -159,8 +173,10 @@ type TjsontagsComplex struct {
 	Complex0 complex128 `json:"-"`                  // first field ignored
 	Complex1 complex128 `json:"complex1"`           // renamed
 	Complex2 complex128 `json:"-"`                  // ignored
+	//nolint:staticcheck  // SA5008: should encoding/json ignore this field or name it "-"? Either use `json:"-"` to ignore the field or use `json:"'-',"` to specify "-" as the name
 	Complex3 complex128 `json:"-,"`                 // named "-"
 	Complex4 complex128 `json:"complex4,omitempty"` // renamed, ignore if empty
+	//nolint:staticcheck // SA5008: malformed `json` tag: invalid trailing ',' character
 	Complex5 complex128 `json:","`                  // no-op
 	Complex6 complex128 `json:",omitempty"`         // ignore if empty
 }
@@ -169,8 +185,10 @@ type TjsontagsPtr struct {
 	Ptr0 *string `json:"-"`              // first field ignored
 	Ptr1 *string `json:"ptr1"`           // renamed
 	Ptr2 *string `json:"-"`              // ignored
+	//nolint:staticcheck  // SA5008: should encoding/json ignore this field or name it "-"? Either use `json:"-"` to ignore the field or use `json:"'-',"` to specify "-" as the name
 	Ptr3 *string `json:"-,"`             // named "-"
 	Ptr4 *string `json:"ptr4,omitempty"` // renamed, ignore if empty
+	//nolint:staticcheck // SA5008: malformed `json` tag: invalid trailing ',' character
 	Ptr5 *string `json:","`              // no-op
 	Ptr6 *string `json:",omitempty"`     // ignore if empty
 }
@@ -179,8 +197,10 @@ type TjsontagsArray struct {
 	Array0 [2]string `json:"-"`                // first field ignored
 	Array1 [2]string `json:"array1"`           // renamed
 	Array2 [2]string `json:"-"`                // ignored
+	//nolint:staticcheck  // SA5008: should encoding/json ignore this field or name it "-"? Either use `json:"-"` to ignore the field or use `json:"'-',"` to specify "-" as the name
 	Array3 [2]string `json:"-,"`               // named "-"
 	Array4 [2]string `json:"array4,omitempty"` // renamed, ignore if empty
+	//nolint:staticcheck // SA5008: malformed `json` tag: invalid trailing ',' character
 	Array5 [2]string `json:","`                // no-op
 	Array6 [2]string `json:",omitempty"`       // ignore if empty
 }
@@ -189,8 +209,10 @@ type TjsontagsSlice struct {
 	Slice0 []string `json:"-"`                // first field ignored
 	Slice1 []string `json:"slice1"`           // renamed
 	Slice2 []string `json:"-"`                // ignored
+	//nolint:staticcheck  // SA5008: should encoding/json ignore this field or name it "-"? Either use `json:"-"` to ignore the field or use `json:"'-',"` to specify "-" as the name
 	Slice3 []string `json:"-,"`               // named "-"
 	Slice4 []string `json:"slice4,omitempty"` // renamed, ignore if empty
+	//nolint:staticcheck // SA5008: malformed `json` tag: invalid trailing ',' character
 	Slice5 []string `json:","`                // no-op
 	Slice6 []string `json:",omitempty"`       // ignore if empty
 }
@@ -199,8 +221,10 @@ type TjsontagsMap struct {
 	Map0 map[string]string `json:"-"`              // first field ignored
 	Map1 map[string]string `json:"map1"`           // renamed
 	Map2 map[string]string `json:"-"`              // ignored
+	//nolint:staticcheck  // SA5008: should encoding/json ignore this field or name it "-"? Either use `json:"-"` to ignore the field or use `json:"'-',"` to specify "-" as the name
 	Map3 map[string]string `json:"-,"`             // named "-"
 	Map4 map[string]string `json:"map4,omitempty"` // renamed, ignore if empty
+	//nolint:staticcheck // SA5008: malformed `json` tag: invalid trailing ',' character
 	Map5 map[string]string `json:","`              // no-op
 	Map6 map[string]string `json:",omitempty"`     // ignore if empty
 }
@@ -234,8 +258,10 @@ type Tembedjsontags struct {
 	Outer   string
 	Tinner1 `json:"inner1"`
 	Tinner2 `json:"-"`
+	//nolint:staticcheck  // SA5008: should encoding/json ignore this field or name it "-"? Either use `json:"-"` to ignore the field or use `json:"'-',"` to specify "-" as the name
 	Tinner3 `json:"-,"`
 	Tinner4 `json:"inner4,omitempty"`
+	//nolint:staticcheck // SA5008: malformed `json` tag: invalid trailing ',' character
 	Tinner5 `json:","`
 	Tinner6 `json:"inner6,omitempty"`
 }
