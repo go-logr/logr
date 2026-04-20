@@ -65,9 +65,9 @@ fi
 
 if ! which apidiff > /dev/null; then
   echo "Installing golang.org/x/exp/cmd/apidiff"
-  pushd "${TMPDIR:-/tmp}" > /dev/null
-    GO111MODULE=off go get golang.org/x/exp/cmd/apidiff
-  popd > /dev/null
+  # Version is locked in the _tools module and updated there
+  # by dependabot via PRs. This avoids a floating dependency.
+  (cd _tools && go install golang.org/x/exp/cmd/apidiff)
 fi
 
 output=$(mktemp -d -t "apidiff.output.XXXX")
