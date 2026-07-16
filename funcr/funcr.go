@@ -637,7 +637,7 @@ func (f Formatter) prettyWithFlags(value any, flags uint32, depth int) string {
 				keystr = prettyString(keystr)
 			} else {
 				// prettyWithFlags will produce already-escaped values
-				keystr = f.prettyWithFlags(it.Key().Interface(), 0, depth+1)
+				keystr = f.prettyWithFlags(it.Key().Interface(), 0, 0) // key depth is unrelated to overall depth
 				if t.Key().Kind() != reflect.String {
 					// JSON only does string keys.  Unlike Go's standard JSON, we'll
 					// convert just about anything to a string.
@@ -654,6 +654,12 @@ func (f Formatter) prettyWithFlags(value any, flags uint32, depth int) string {
 	case reflect.Ptr, reflect.Interface:
 		if v.IsNil() {
 			return "null"
+		}
+		// Special case: if the pointer points to itself, we have a cycle.
+		// This should not happen accidentally (e.g. json decoding should never
+		// do this) but we should handle it gracefully.
+		if reflect.DeepEqual(v.Elem().Interface(), v.Interface()) {
+			depth = f.opts.MaxLogDepth + 1 // force a depth error
 		}
 		return f.prettyWithFlags(v.Elem().Interface(), 0, depth)
 	}
