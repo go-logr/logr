@@ -238,7 +238,7 @@ func TestSlogSinkGroupMaxDepth(t *testing.T) {
 	// the kvList — that would eventually overflow the goroutine stack (a fatal,
 	// unrecoverable crash). attrToKVs stops at MaxLogDepth and emits a truncation
 	// marker, matching how the formatter truncates deep nesting when rendering.
-	var attr slog.Attr = slog.Int("leaf", 1)
+	attr := slog.Int("leaf", 1)
 	for i := 0; i < 1000; i++ { // far deeper than the default MaxLogDepth
 		attr = slog.Group("g", attr)
 	}
