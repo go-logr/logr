@@ -28,6 +28,9 @@ import (
 // The logr verbosity level is mapped to slog levels such that V(0) becomes
 // slog.LevelInfo and V(4) becomes slog.LevelDebug.
 func FromSlogHandler(handler slog.Handler) Logger {
+	if handler == nil {
+		return Discard()
+	}
 	if handler, ok := handler.(*slogHandler); ok {
 		if handler.sink == nil {
 			return Discard()

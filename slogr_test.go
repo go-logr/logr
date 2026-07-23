@@ -196,3 +196,13 @@ func expectEqual(t *testing.T, expected, actual any) {
 		t.Errorf("Expected %T %+v, got instead: %T %+v", expected, expected, actual, actual)
 	}
 }
+
+func TestFromSlogHandlerNil(t *testing.T) {
+	log := FromSlogHandler(nil)
+	if log.GetSink() != nil {
+		t.Fatalf("expected discard logger with nil sink, got %#v", log.GetSink())
+	}
+	// Must not panic.
+	log.Info("ignored")
+	log.Error(nil, "ignored")
+}
