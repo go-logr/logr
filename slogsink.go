@@ -49,6 +49,7 @@ type slogSink struct {
 	callDepth int
 	name      string
 	handler   slog.Handler
+	ctx       context.Context
 }
 
 func (l *slogSink) Init(info RuntimeInfo) {
@@ -66,7 +67,7 @@ func (l *slogSink) WithCallDepth(depth int) LogSink {
 }
 
 func (l *slogSink) Enabled(level int) bool {
-	return l.handler.Enabled(context.Background(), slog.Level(-level))
+	return l.handler.Enabled(l.ctx, slog.Level(-level))
 }
 
 func (l *slogSink) Info(level int, msg string, kvList ...interface{}) {
@@ -90,7 +91,7 @@ func (l *slogSink) log(err error, msg string, level slog.Level, kvList ...interf
 		record.AddAttrs(slog.Any(errKey, err))
 	}
 	record.Add(kvList...)
-	_ = l.handler.Handle(context.Background(), record)
+	_ = l.handler.Handle(l.ctx, record)
 }
 
 func (l slogSink) WithName(name string) LogSink {
