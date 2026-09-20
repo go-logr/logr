@@ -577,14 +577,21 @@ func (f Formatter) prettyWithFlags(value any, flags uint32, depth int, ptrDepth 
 			if omitempty && isEmpty(v.Field(i)) {
 				continue
 			}
+			if fld.Anonymous && fld.Type.Kind() == reflect.Struct && name == "" {
+				fields := f.prettyWithFlags(v.Field(i).Interface(), flags|flagRawStruct, depth+1, ptrDepth+1, ptrMap)
+				if fields != "" {
+					if printComma {
+						buf.WriteByte(f.comma())
+					}
+					buf.WriteString(fields)
+					printComma = true
+				}
+				continue
+			}
 			if printComma {
 				buf.WriteByte(f.comma())
 			}
 			printComma = true // if we got here, we are rendering a field
-			if fld.Anonymous && fld.Type.Kind() == reflect.Struct && name == "" {
-				buf.WriteString(f.prettyWithFlags(v.Field(i).Interface(), flags|flagRawStruct, depth+1, ptrDepth+1, ptrMap))
-				continue
-			}
 			if name == "" {
 				name = fld.Name
 			}

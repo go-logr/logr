@@ -900,6 +900,37 @@ func TestPretty(t *testing.T) {
 	}
 }
 
+func TestPrettyEmptyEmbeddedStruct(t *testing.T) {
+	type Empty struct {
+		Hidden string `json:",omitempty"`
+	}
+	cases := []any{
+		struct {
+			Empty
+			Value int
+		}{Value: 1},
+		struct {
+			Value int
+			Empty
+		}{Value: 1},
+		struct {
+			First int
+			Empty
+			Last int
+		}{First: 1, Last: 2},
+	}
+	f := NewFormatterJSON(Options{})
+	for _, value := range cases {
+		want, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := f.pretty(value); got != string(want) {
+			t.Errorf("got %s, want %s", got, want)
+		}
+	}
+}
+
 func makeKV(args ...any) []any {
 	return args
 }
