@@ -151,7 +151,7 @@ func attrToKVs(attr slog.Attr, groupPrefix string, kvList []any) []any {
 			grpKVs = attrToKVs(attr, prefix, grpKVs)
 		}
 		kvList = append(kvList, grpKVs...)
-	} else if attr.Key != "" {
+	} else if attr.Key != "" || !attrVal.Equal(slog.Value{}) {
 		kvList = append(kvList, addPrefix(groupPrefix, attr.Key), attrVal.Any())
 	}
 
