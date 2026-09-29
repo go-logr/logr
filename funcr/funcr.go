@@ -455,7 +455,12 @@ func (f Formatter) prettyWithFlags(value any, flags uint32, depth int, ptrDepth 
 	// Handle types that want to format themselves.
 	switch v := value.(type) {
 	case fmt.Stringer:
-		value = invokeStringer(v)
+		switch value.(type) {
+		case json.RawMessage, *json.RawMessage:
+			// Preserve the raw JSON or byte array formatting below instead of using String().
+		default:
+			value = invokeStringer(v)
+		}
 	case error:
 		value = invokeError(v)
 	}
