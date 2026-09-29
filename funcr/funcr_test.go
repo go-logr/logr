@@ -66,6 +66,12 @@ func (t Tmarshaler) Error() string {
 	return "Error(): you should not see this"
 }
 
+type Trawmarshaler struct{ val json.RawMessage }
+
+func (t Trawmarshaler) MarshalLog() any {
+	return t.val
+}
+
 // Logging this should result in a panic.
 type Tmarshalerpanic struct{ val string }
 
@@ -82,6 +88,12 @@ func (t Tstringer) String() string {
 
 func (t Tstringer) Error() string {
 	return "Error(): you should not see this"
+}
+
+type Tbytestringer []byte
+
+func (t Tbytestringer) String() string {
+	return string(t)
 }
 
 // Logging this should result in a panic.
@@ -938,6 +950,8 @@ func makeKV(args ...any) []any {
 func TestRender(t *testing.T) {
 	// used below
 	raw := &Trawjson{}
+	rawMessage := json.RawMessage(`{"a":1}`)
+	rawMessagePtr := &rawMessage
 	marshal := &TjsontagsInt{}
 	var err error
 	raw.Message, err = json.Marshal(marshal)
@@ -1029,6 +1043,71 @@ func TestRender(t *testing.T) {
 		args:       makeKV("key", &Trawjson{}),
 		expectKV:   `"key"={"message"=[]}`,
 		expectJSON: `{"key":{"message":null}}`,
+	}, {
+		name:       "json.RawMessage object",
+		args:       makeKV("key", rawMessage),
+		expectKV:   `"key"=[123 34 97 34 58 49 125]`,
+		expectJSON: `{"key":{"a":1}}`,
+	}, {
+		name:       "json.RawMessage string",
+		args:       makeKV("key", json.RawMessage(`"hello"`)),
+		expectKV:   `"key"=[34 104 101 108 108 111 34]`,
+		expectJSON: `{"key":"hello"}`,
+	}, {
+		name:       "json.RawMessage array",
+		args:       makeKV("key", json.RawMessage(`[1]`)),
+		expectKV:   `"key"=[91 49 93]`,
+		expectJSON: `{"key":[1]}`,
+	}, {
+		name:       "json.RawMessage scalar",
+		args:       makeKV("key", json.RawMessage(`true`)),
+		expectKV:   `"key"=[116 114 117 101]`,
+		expectJSON: `{"key":true}`,
+	}, {
+		name:       "json.RawMessage nil",
+		args:       makeKV("key", json.RawMessage(nil)),
+		expectKV:   `"key"=[]`,
+		expectJSON: `{"key":null}`,
+	}, {
+		name:       "json.RawMessage empty",
+		args:       makeKV("key", json.RawMessage{}),
+		expectKV:   `"key"=[]`,
+		expectJSON: `{"key":null}`,
+	}, {
+		name:       "json.RawMessage pointer",
+		args:       makeKV("key", rawMessagePtr),
+		expectKV:   `"key"=[123 34 97 34 58 49 125]`,
+		expectJSON: `{"key":{"a":1}}`,
+	}, {
+		name:       "json.RawMessage nil pointer",
+		args:       makeKV("key", (*json.RawMessage)(nil)),
+		expectKV:   `"key"=null`,
+		expectJSON: `{"key":null}`,
+	}, {
+		name:       "json.RawMessage pointer chain",
+		args:       makeKV("key", &rawMessagePtr),
+		expectKV:   `"key"=[123 34 97 34 58 49 125]`,
+		expectJSON: `{"key":{"a":1}}`,
+	}, {
+		name:       "json.RawMessage map value",
+		args:       makeKV("key", map[string]any{"message": rawMessage}),
+		expectKV:   `"key"={"message"=[123 34 97 34 58 49 125]}`,
+		expectJSON: `{"key":{"message":{"a":1}}}`,
+	}, {
+		name:       "json.RawMessage slice element",
+		args:       makeKV("key", []json.RawMessage{rawMessage}),
+		expectKV:   `"key"=[[123 34 97 34 58 49 125]]`,
+		expectJSON: `{"key":[{"a":1}]}`,
+	}, {
+		name:       "json.RawMessage from logr.Marshaler",
+		args:       makeKV("key", Trawmarshaler{rawMessage}),
+		expectKV:   `"key"=[123 34 97 34 58 49 125]`,
+		expectJSON: `{"key":{"a":1}}`,
+	}, {
+		name:       "byte slice fmt.Stringer",
+		args:       makeKV("key", Tbytestringer("hello")),
+		expectKV:   `"key"="hello"`,
+		expectJSON: `{"key":"hello"}`,
 	}}
 
 	for _, tc := range testCases {
