@@ -264,7 +264,7 @@ type groupDef struct {
 }
 
 // PseudoStruct is a list of key-value pairs that gets logged as a struct.
-type PseudoStruct []any
+type PseudoStruct = logr.PseudoStruct
 
 // render produces a log line, ready to use.
 func (f Formatter) render(builtins, args []any) string {
