@@ -20,6 +20,7 @@ package logr
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -56,6 +57,52 @@ func TestToSlogHandler(t *testing.T) {
 			t.Errorf("expected type *slog.JSONHandler, got %T", handler)
 		}
 	})
+}
+
+type testLogValuer func() slog.Value
+
+func (v testLogValuer) LogValue() slog.Value { return v() }
+
+func TestToSlogHandlerEmptyAttributeKeys(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		attr slog.Attr
+		want string
+	}{
+		{"string", slog.String("", "value"), `,"":"value"`},
+		{"empty_string", slog.String("", ""), `,"":""`},
+		{"zero_integer", slog.Int("", 0), `,"":0`},
+		{"false", slog.Bool("", false), `,"":false`},
+		{"slice", slog.Any("", []string{"value"}), `,"":["value"]`},
+		{"named_nil", slog.Any("named", nil), `,"named":null`},
+		{"zero_attr", slog.Attr{}, ""},
+		{"resolved_value", slog.Any("", testLogValuer(func() slog.Value {
+			return slog.StringValue("value")
+		})), `,"":"value"`},
+		{"resolved_nil", slog.Any("", testLogValuer(func() slog.Value {
+			return slog.Value{}
+		})), ""},
+		{"inline_group", slog.Group("", slog.String("", "value")), `,"":"value"`},
+		{"named_group", slog.Group("group", slog.String("", "value")), `,"group":"value"`},
+		{"empty_group", slog.Group("group", slog.Attr{}), ""},
+	} {
+		for _, with := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/with=%t", tc.name, with), func(t *testing.T) {
+				var buffer bytes.Buffer
+				sink := &passthruLogSink{handler: slog.NewJSONHandler(&buffer, debugWithoutTime)}
+				logger := slog.New(ToSlogHandler(New(sink)))
+				if with {
+					logger.With(tc.attr).Info("message")
+				} else {
+					logger.LogAttrs(context.Background(), slog.LevelInfo, "message", tc.attr)
+				}
+				want := `{"level":"INFO","msg":"message"` + tc.want + "}\n"
+				if got := buffer.String(); got != want {
+					t.Errorf("got %s, want %s", got, want)
+				}
+			})
+		}
+	}
 }
 
 func TestFromSlogHandler(t *testing.T) {
