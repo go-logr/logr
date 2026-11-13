@@ -27,14 +27,30 @@ import (
 //
 // The logr verbosity level is mapped to slog levels such that V(0) becomes
 // slog.LevelInfo and V(4) becomes slog.LevelDebug.
+//
+// When you need a short-lived Logger linked to the current context, consider
+// using FromSlogHandlerWithContext instead and pass the context to it.
 func FromSlogHandler(handler slog.Handler) Logger {
+	return FromSlogHandlerWithContext(context.Background(), handler)
+}
+
+// FromSlogHandlerWithContext returns a Logger which writes to the slog.Handler.
+//
+// The logr verbosity level is mapped to slog levels such that V(0) becomes
+// slog.LevelInfo and V(4) becomes slog.LevelDebug.
+//
+// The provided context is passed to the slog.Handler when logging. This allows
+// the slog.Handler to use the context. This should only be used for short-lived
+// Loggers that do not outlive the context. If you need a long-lived Logger, use
+// FromSlogHandler instead.
+func FromSlogHandlerWithContext(ctx context.Context, handler slog.Handler) Logger {
 	if handler, ok := handler.(*slogHandler); ok {
 		if handler.sink == nil {
 			return Discard()
 		}
 		return New(handler.sink).V(int(handler.levelBias))
 	}
-	return New(&slogSink{handler: handler})
+	return New(&slogSink{handler: handler, ctx: ctx})
 }
 
 // ToSlogHandler returns a slog.Handler which writes to the same sink as the Logger.

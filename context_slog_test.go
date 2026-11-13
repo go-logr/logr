@@ -63,3 +63,36 @@ func TestContextWithSlog(t *testing.T) {
 
 	// ...read as logr is covered in the non-slog test
 }
+
+func TestContextWithSlogPassesContextToHandler(t *testing.T) {
+	type ctxKey struct{}
+
+	handler := &contextCaptureSlogHandler{Handler: slog.NewJSONHandler(os.Stderr, nil)}
+	ctx := NewContextWithSlogLogger(context.Background(), slog.New(handler))
+
+	ctx = context.WithValue(ctx, ctxKey{}, "value")
+	logger, err := FromContext(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	logger.Info("hello")
+
+	if handler.ctx != ctx {
+		t.Fatalf("expected slog handler to get original context")
+	}
+
+	if v := handler.ctx.Value(ctxKey{}); v != "value" {
+		t.Fatalf("expected context value to be preserved, got %#v", v)
+	}
+}
+
+type contextCaptureSlogHandler struct {
+	slog.Handler
+	ctx context.Context
+}
+
+func (h *contextCaptureSlogHandler) Handle(ctx context.Context, record slog.Record) error {
+	h.ctx = ctx
+	return h.Handler.Handle(ctx, record)
+}
