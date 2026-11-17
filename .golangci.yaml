@@ -22,6 +22,12 @@ linters:
     - revive
     - staticcheck
     - unused
+  exclusions:
+    rules:
+      # Repeating constants in tests improves test readability.
+      - path: _test\.go
+        linters:
+          - goconst
 
 issues:
   max-issues-per-linter: 0
