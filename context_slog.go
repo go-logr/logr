@@ -35,7 +35,7 @@ func FromContext(ctx context.Context) (Logger, error) {
 	case Logger:
 		return v, nil
 	case *slog.Logger:
-		return FromSlogHandler(v.Handler()), nil
+		return FromSlogHandlerWithContext(ctx, v.Handler()), nil
 	default:
 		// Not reached.
 		panic(fmt.Sprintf("unexpected value type for logr context key: %T", v))
