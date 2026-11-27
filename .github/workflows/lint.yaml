@@ -28,7 +28,7 @@ jobs:
           # (Ludovic Fernandez, golangci-lint maintainer).
           #
           # Would be nice to get it auto-updated via dependabot, though :-/
-          version: v2.11.4
+          version: v2.15.0
 
           # Optional: show only new issues if it's a pull request. The default value is `false`.
           # only-new-issues: true
